@@ -94,6 +94,7 @@
 #define AEC_EN17 0X02
 #define AEC_EN16 0X01
 
+
 #define HDMI_RX_INT_STATUS1_REG 0X31
 #define HDMI_DVI 0X80
 #define CKDT_CHANGE 0X40
@@ -109,6 +110,7 @@
 #define AUTH_DONE 0X40
 #define HDCP_ERR 0X20
 #define ECC_ERR 0X10
+
 
 #define HDMI_RX_INT_STATUS3_REG 0X33
 #define AUD_MODE_CHANGE 0X01
@@ -158,6 +160,7 @@
 #define NEW_ACP 0X04
 #define NEW_AVI 0X02
 
+
 #define HDMI_RX_INT_MASK1_REG 0X41
 #define HDMI_RX_INT_MASK2_REG 0X42
 #define HDMI_RX_INT_MASK3_REG 0X43
@@ -179,10 +182,12 @@
 #define HDMI_RX_TMDS_CTRL_REG21 0X64
 #define HDMI_RX_TMDS_CTRL_REG22 0X65
 
+
 #define HDMI_RX_VIDEO_STATUS_REG1 0x70
 #define COLOR_DEPTH     0xF0
 #define DEFAULT_PHASE 0X08
 #define VIDEO_TYPE 0X04
+
 
 #define HDMI_RX_HTOTAL_LOW 0X71
 #define HDMI_RX_HTOTAL_HIGH 0X72
@@ -201,6 +206,7 @@
 
 #define HDMI_RX_H_SYNC_WIDTH_LOW 0X7D
 #define HDMI_RX_H_SYNC_WIDTH_HIGH 0X7E
+
 
 #define HDMI_RX_VID_DATA_RNG_CTRL_REG 0X83
 #define YC_LIMT 0X10
@@ -222,6 +228,7 @@
 #define CEC_PIN_SEL 0X02
 #define CEC_RST 0X01
 
+
 #define HDMI_RX_CEC_SPEED_CTRL_REG 0XD4
 #define CEC_SPEED_27M 0x40
 
@@ -235,6 +242,7 @@
 #define PLLLOCK_CKDT_EN 0X04
 #define ANALOG_CKDT_EN 0X02
 #define DIGITAL_CKDT_EN 0X01
+
 
 /***************************************************************/
 /*Register definition of device address 0x80*/
@@ -582,7 +590,6 @@
 
 #define SP_COMMON_INT_STATUS3 0xF3
 #define HDCP_LINK_CHK_FAIL 0x01
-
 #define SP_COMMON_INT_STATUS4 0xF4
 #define PLUG 0x01
 #define ESYNC_ERR 0x10
@@ -603,6 +610,7 @@
 #define SP_COMMON_INT_MASK4 0xFB
 #define SP_INT_MASK	 0xFE
 #define SP_TX_INT_CTRL_REG 0xFF
+
 
 /***************************************************************/
 /*Register definition of device address 0x7a*/
@@ -674,15 +682,16 @@
 #define DPCD_SINK_STATUS  0x05
 
 #define DPCD_TEST_Response	0x60
-#define TEST_ACK	0x01
-#define DPCD_TEST_EDID_Checksum_Write	0x04
+#define TEST_ACK 0x01
+#define DPCD_TEST_EDID_Checksum_Write 0x04
 
-#define DPCD_TEST_EDID_Checksum	0x61
+#define DPCD_TEST_EDID_Checksum 0x61
 
-#define DPCD_SPECIFIC_INTERRUPT1	0x10
-#define DPCD_USER_COMM1	0x22
 
-#define DPCD_SPECIFIC_INTERRUPT2	0x11
+#define DPCD_SPECIFIC_INTERRUPT1 0x10
+#define DPCD_USER_COMM1 0x22
+
+#define DPCD_SPECIFIC_INTERRUPT2 0x11
 
 #define DPCD_TEST_REQUEST 0x18
 #define DPCD_TEST_LINK_RATE 0x19

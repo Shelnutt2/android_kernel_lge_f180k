@@ -22,18 +22,15 @@ struct fsa8008_platform_data {
 	unsigned int key_code;    /* key code for hook */
 
 	unsigned int gpio_detect; /* DET : to detect jack inserted or not */
-	unsigned int gpio_detect_can_wakeup;
 	unsigned int gpio_mic_en; /* EN : to enable mic */
-	unsigned int gpio_mic_bias_en; /* EN : to enable mic bias */
 	unsigned int gpio_jpole;  /* JPOLE : 3pole or 4pole */
 	unsigned int gpio_key;    /* S/E button */
 
-	/* latency for pole (3 or 4)detection (in ms) */
-	unsigned int latency_for_detection;
-
 	/* callback function which is initialized while probing */
 	void (*set_headset_mic_bias)(int enable);
-	void (*set_uart_console)(int enable);
+
+	/* latency for pole (3 or 4)detection (in ms) */
+	unsigned int latency_for_detection;
 };
 
 #endif /* __HDS_FSA8008_H__ */

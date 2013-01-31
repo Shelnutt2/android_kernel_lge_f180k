@@ -19,7 +19,7 @@
 #include <linux/module.h>
 #include <asm/mach-types.h>
 #include <mach/msm_iomap.h>
-#include <mach/board.h>
+#include <mach/camera.h>
 #include <mach/irqs-7xxx.h>
 #include "devices-msm7x2xa.h"
 #include "board-msm7627a.h"
@@ -396,8 +396,10 @@ static void __init msm7x27a_init_cam(void)
 		sensor_board_info_ov8825.num_vreg = 0;
 
 	}
-	if (machine_is_msm8625_evb()
-			|| machine_is_msm8625_evt()) {
+	if (machine_is_msm8625_evb() || machine_is_msm7627a_evb()
+				||  machine_is_msm8625_evt()
+				|| machine_is_msm7627a_qrd3()
+				|| machine_is_msm8625_qrd7()) {
 		sensor_board_info_ov7692.cam_vreg =
 			ov7692_gpio_vreg;
 		sensor_board_info_ov7692.num_vreg =

@@ -23,6 +23,10 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 
+// 1: block cmd5 at eMMC suspend, 0: using cmd5 at eMMC suspend.
+// do not need cmd5 at this time.
+#define BLOCK_EMMC_CMD5_SLEEP 1
+
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0

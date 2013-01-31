@@ -109,6 +109,23 @@ static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{770,	213},
 	{780,	208},
 	{790,	203}
+#endif
+};
+
+static const struct pm8xxx_adc_map_pt adcmap_apq_therm[] = {
+/* APQ THERM placeholder for voltage to temperature mapping */
+/* e.g. and for reference only */
+	{2121,	-30},
+	{2085,  -25},
+	{2040,	-20},
+	{1913,	-10},
+	{1732,	0},
+	{1502,	10},
+	{1242,	20},
+	{981,	30},
+	{746,	40},
+	{553,	50},
+	{403,	60},
 };
 
 static const struct pm8xxx_adc_map_pt adcmap_pa_therm[] = {
@@ -620,7 +637,10 @@ int32_t pm8xxx_adc_scale_batt_therm(int32_t adc_code,
 
 	bat_voltage = pm8xxx_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
-
+#ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
+/* battery of therm H/W register level reading kwangjae1.lee@lge.com */
+	adc_chan_result->adc_value = bat_voltage;
+#endif
 	return pm8xxx_adc_map_batt_therm(
 			adcmap_btm_threshold,
 			ARRAY_SIZE(adcmap_btm_threshold),
@@ -646,6 +666,26 @@ int32_t pm8xxx_adc_scale_pa_therm(int32_t adc_code,
 			&adc_chan_result->physical);
 }
 EXPORT_SYMBOL_GPL(pm8xxx_adc_scale_pa_therm);
+
+int32_t pm8xxx_adc_scale_apq_therm(int32_t adc_code,
+		const struct pm8xxx_adc_properties *adc_properties,
+		const struct pm8xxx_adc_chan_properties *chan_properties,
+		struct pm8xxx_adc_chan_result *adc_chan_result)
+{
+/* Reference only - Place holder to add APQ THERM */
+/* Initial addition by adding the pa_therm funtionlity above */
+	int64_t apq_voltage = 0;
+
+	apq_voltage = pm8xxx_adc_scale_ratiometric_calib(adc_code,
+			adc_properties, chan_properties);
+
+	return pm8xxx_adc_map_linear(
+			adcmap_apq_therm,
+			ARRAY_SIZE(adcmap_apq_therm),
+			apq_voltage,
+			&adc_chan_result->physical);
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_scale_apq_therm);
 
 int32_t pm8xxx_adc_scale_batt_id(int32_t adc_code,
 		const struct pm8xxx_adc_properties *adc_properties,

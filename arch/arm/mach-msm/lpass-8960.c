@@ -25,7 +25,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 
-#if defined(CONFIG_LGE_CRASH_HANDLER)
+#if defined(CONFIG_LGE_HANDLE_PANIC)
 #include <mach/restart.h>
 #include <mach/board_lge.h>
 #endif
@@ -124,11 +124,11 @@ static void lpass_fatal_fn(struct work_struct *work)
 {
 	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
 		__func__);
-	lpass_log_failure_reason();
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-	set_ssr_magic_number("lpass");
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+	lge_set_magic_for_subsystem("lpass");
 	msm_set_restart_mode(0x6d634130);
 #endif
+	lpass_log_failure_reason();
 	panic(MODULE_NAME ": Resetting the SoC");
 }
 
@@ -143,11 +143,11 @@ static void lpass_smsm_state_cb(void *data, uint32_t old_state,
 		pr_err("%s: LPASS SMSM state changed to SMSM_RESET,"
 			" new_state = 0x%x, old_state = 0x%x\n", __func__,
 			new_state, old_state);
-		lpass_log_failure_reason();
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-		set_ssr_magic_number("lpass");
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+		lge_set_magic_for_subsystem("lpass");
 		msm_set_restart_mode(0x6d634130);
 #endif
+		lpass_log_failure_reason();
 		panic(MODULE_NAME ": Resetting the SoC");
 	}
 }

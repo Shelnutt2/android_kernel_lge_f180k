@@ -19,7 +19,9 @@
 #include <linux/usb.h>
 #include <linux/usb/usbnet.h>
 #include <linux/msm_rmnet.h>
-
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
 #include "rmnet_usb_ctrl.h"
 
 #define RMNET_DATA_LEN			2000
@@ -194,7 +196,13 @@ static int rmnet_usb_bind(struct usbnet *usbnet, struct usb_interface *iface)
 	usbnet->out = usb_sndbulkpipe(usbnet->udev,
 		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 	usbnet->status = int_in;
-
+#ifdef LG_FW_HSIC_EMS_DEBUG
+	printk("[%s] RmNet Data bulk_in_Addr = %d, Bulk out Addr = %d, bulk_in_ep = %d, bulk_out_ep = %d \n", __func__,
+		(int)bulk_in->desc.bEndpointAddress,
+		(int)bulk_out->desc.bEndpointAddress,
+		(int)(bulk_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK),
+		(int)(bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK)); //secheol.pyo@lge.com, Rmnet review.
+#endif		
 	/*change name of net device to rmnet_usbx here*/
 	strlcpy(usbnet->net->name, "rmnet_usb%d", IFNAMSIZ);
 

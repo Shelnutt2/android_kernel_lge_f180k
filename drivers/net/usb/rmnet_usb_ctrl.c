@@ -19,6 +19,9 @@
 #include <linux/poll.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
 #include "rmnet_usb_ctrl.h"
 
 #define DEVICE_NAME			"hsicctl"
@@ -754,6 +757,10 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 	dev->int_pipe = usb_rcvintpipe(udev,
 		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 
+#ifdef LG_FW_HSIC_EMS_DEBUG/*secheol.pyo - endpoint logging*/
+	printk("[%s] RmNet Ctrl Interrupt IN end_point = %d \n", __func__,
+		(int)(int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK)); //secheol.pyo@lge.com
+#endif/*secheol.pyo - endpoint logging*/
 	mutex_lock(&dev->dev_lock);
 	dev->intf = intf;
 

@@ -40,6 +40,8 @@ obj-$(CONFIG_S5K3E2FX) += s5k3e2fx.o
 #FIXME: Merge the two ifeq causes VX6953 preview not coming up.
 ifneq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_VX6953) += vx6953.o vx6953_reg.o
+  obj-$(CONFIG_CE1702) += ce1702_v4l2.o
+  obj-$(CONFIG_IMX132) += imx132_v4l2.o
   obj-$(CONFIG_IMX074) += imx074.o imx074_reg.o
   obj-$(CONFIG_MT9E013) += mt9e013.o mt9e013_reg.o
   obj-$(CONFIG_WEBCAM_OV9726) += ov9726.o ov9726_reg.o

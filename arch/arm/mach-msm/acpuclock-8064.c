@@ -22,6 +22,10 @@
 #include "acpuclock.h"
 #include "acpuclock-krait.h"
 
+#ifdef CONFIG_LGE_PM
+#include <mach/board_lge.h>
+#endif
+
 static struct hfpll_data hfpll_data __initdata = {
 	.mode_offset = 0x00,
 	.l_offset = 0x08,
@@ -640,6 +644,7 @@ static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[14][5] = { tbl_PVS5_1512MHz, sizeof(tbl_PVS5_1512MHz),     25000 },
 	[14][6] = { tbl_PVS6_1512MHz, sizeof(tbl_PVS6_1512MHz),     25000 },
 };
+#endif
 
 static struct acpuclk_krait_params acpuclk_8064_params __initdata = {
 	.scalable = scalable,

@@ -53,7 +53,8 @@
 	defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_MSM7X27) || \
 	defined(CONFIG_ARCH_MSM7X25) || defined(CONFIG_ARCH_MSM7X01A) || \
 	defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_MSM7X30) || \
-	defined(CONFIG_ARCH_MSM9625)
+	defined(CONFIG_ARCH_MSM9625) || defined(CONFIG_ARCH_MPQ8092) || \
+	defined(CONFIG_ARCH_MSM8226)
 
 /* Unified iomap */
 
@@ -97,6 +98,7 @@
 #define MSM_MDC_BASE		IOMEM(0xFA400000)	/*  1M */
 #define MSM_AD5_BASE		IOMEM(0xFA900000)	/*  13M (D00000)
 							  0xFB600000 */
+#define MSM_DBG_IMEM_BASE	IOMEM(0xFB600000)	/*  4K */
 
 #define MSM_STRONGLY_ORDERED_PAGE	0xFA0F0000
 #define MSM8625_SECONDARY_PHYS		0x0FE00000
@@ -118,6 +120,8 @@
 #include "msm_iomap-9615.h"
 #include "msm_iomap-8974.h"
 #include "msm_iomap-9625.h"
+#include "msm_iomap-8092.h"
+#include "msm_iomap-8226.h"
 
 #else
 /* Legacy single-target iomap */

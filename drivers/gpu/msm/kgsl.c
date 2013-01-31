@@ -36,7 +36,6 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
-#include "kgsl_sync.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -365,7 +364,7 @@ kgsl_create_context(struct kgsl_device_private *dev_priv)
 
 	/* MAX - 1, there is one memdesc in memstore for device info */
 	if (id >= KGSL_MEMSTORE_MAX) {
-		KGSL_DRV_ERR(dev_priv->device, "cannot have more than %d "
+		KGSL_DRV_INFO(dev_priv->device, "cannot have more than %d "
 				"ctxts due to memstore limitation\n",
 				KGSL_MEMSTORE_MAX);
 		idr_remove(&dev_priv->device->context_idr, id);
@@ -376,12 +375,6 @@ kgsl_create_context(struct kgsl_device_private *dev_priv)
 	kref_init(&context->refcount);
 	context->id = id;
 	context->dev_priv = dev_priv;
-
-	if (kgsl_sync_timeline_create(context)) {
-		idr_remove(&dev_priv->device->context_idr, id);
-		kfree(context);
-		return NULL;
-	}
 
 	return context;
 }
@@ -427,7 +420,6 @@ kgsl_context_destroy(struct kref *kref)
 {
 	struct kgsl_context *context = container_of(kref, struct kgsl_context,
 						    refcount);
-	kgsl_sync_timeline_destroy(context);
 	kfree(context);
 }
 
@@ -1109,11 +1101,8 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
 	int result;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device, "invalid context_id %d\n",
-			param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
 	/*
 	 * A reference count is needed here, because waittimestamp may
 	 * block with the device mutex unlocked and userspace could
@@ -1137,9 +1126,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	context = kgsl_find_context(dev_priv, param->drawctxt_id);
 	if (context == NULL) {
 		result = -EINVAL;
-		KGSL_DRV_ERR(dev_priv->device,
-			"invalid context_id %d\n",
-			param->drawctxt_id);
 		goto done;
 	}
 
@@ -1148,9 +1134,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 			"Using IB list mode for ib submission, numibs: %d\n",
 			param->numibs);
 		if (!param->numibs) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Invalid numibs as parameter: %d\n",
-				 param->numibs);
 			result = -EINVAL;
 			goto done;
 		}
@@ -1161,9 +1144,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		 */
 
 		if (param->numibs > 10000) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Too many IBs submitted. count: %d max 10000\n",
-				param->numibs);
 			result = -EINVAL;
 			goto done;
 		}
@@ -1250,11 +1230,8 @@ static long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 	struct kgsl_context *context;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device, "invalid context_id %d\n",
-			param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
 
 	return _cmdstream_readtimestamp(dev_priv, context,
 			param->type, &param->timestamp);
@@ -1319,11 +1296,8 @@ static long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
 	struct kgsl_context *context;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device,
-			"invalid drawctxt context_id %d\n", param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
 
 	return _cmdstream_freememontimestamp(dev_priv, param->gpuaddr,
 			context, param->timestamp, param->type);
@@ -1477,10 +1451,8 @@ static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 
 	ret = -ERANGE;
 
-	if (phys == 0) {
-		KGSL_CORE_ERR("kgsl_get_phys_file returned phys=0\n");
+	if (phys == 0)
 		goto err;
-	}
 
 	/* Make sure the length of the region, the offset and the desired
 	 * size are all page aligned or bail
@@ -1488,19 +1460,13 @@ static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 	if ((len & ~PAGE_MASK) ||
 		(offset & ~PAGE_MASK) ||
 		(size & ~PAGE_MASK)) {
-		KGSL_CORE_ERR("length %lu, offset %u or size %u "
-				"is not page aligned\n",
-				len, offset, size);
+		KGSL_CORE_ERR("length offset or size is not page aligned\n");
 		goto err;
 	}
 
 	/* The size or offset can never be greater than the PMEM length */
-	if (offset >= len || size > len) {
-		KGSL_CORE_ERR("offset %u or size %u "
-				"exceeds pmem length %lu\n",
-				offset, size, len);
+	if (offset >= len || size > len)
 		goto err;
-	}
 
 	/* If size is 0, then adjust it to default to the size of the region
 	 * minus the offset.  If size isn't zero, then make sure that it will
@@ -2074,11 +2040,6 @@ static long kgsl_ioctl_timestamp_event(struct kgsl_device_private *dev_priv,
 			param->context_id, param->timestamp, param->priv,
 			param->len, dev_priv);
 		break;
-	case KGSL_TIMESTAMP_EVENT_FENCE:
-		ret = kgsl_add_fence_event(dev_priv->device,
-			param->context_id, param->timestamp, param->priv,
-			param->len, dev_priv);
-		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -2171,8 +2132,6 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		cmd = IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP;
 	else if (cmd == IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_OLD)
 		cmd = IOCTL_KGSL_CMDSTREAM_READTIMESTAMP;
-	else if (cmd == IOCTL_KGSL_TIMESTAMP_EVENT_OLD)
-		cmd = IOCTL_KGSL_TIMESTAMP_EVENT;
 
 	nr = _IOC_NR(cmd);
 

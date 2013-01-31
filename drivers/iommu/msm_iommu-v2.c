@@ -256,9 +256,9 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 		SET_SMR_MASK(base, num, 0);
 		SET_SMR_ID(base, num, sids[i]);
 
-		/* Set VMID = 0 */
 		SET_S2CR_N(base, num, 0);
 		SET_S2CR_CBNDX(base, num, ctx);
+		SET_S2CR_MEMATTR(base, num, 0x0A);
 		/* Set security bit override to be Non-secure */
 		SET_S2CR_NSCFG(base, num, 3);
 	}

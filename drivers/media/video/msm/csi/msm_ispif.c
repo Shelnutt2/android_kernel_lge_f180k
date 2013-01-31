@@ -130,6 +130,9 @@ static void msm_ispif_sel_csid_core(struct ispif_device *ispif,
 	}
 	data = msm_camera_io_r(ispif->base + ISPIF_INPUT_SEL_ADDR +
 		(0x200 * vfe_intf));
+
+	pr_err("%s: intftype = %d reg=%d , csid =%d \n", __func__,intftype, data,csid );
+	
 	switch (intftype) {
 	case PIX0:
 		data &= ~(0x3);
@@ -259,7 +262,7 @@ static int msm_ispif_config(struct ispif_device *ispif,
 	uint8_t vfe_intf;
 	params_len = params_list->len;
 	ispif_params = params_list->params;
-	CDBG("Enable interface\n");
+	pr_err("[RDI] %s: Enable interface\n",__func__);
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_ADDR);
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_1_ADDR);
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_2_ADDR);

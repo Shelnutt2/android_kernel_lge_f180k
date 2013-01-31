@@ -169,17 +169,17 @@ read_start:
 		size_t len;
 
 		pkt = list_first_entry(&ksb->to_ks_list, struct data_pkt, list);
-		len = min_t(size_t, space, pkt->len - pkt->n_read);
+		len = min_t(size_t, space, pkt->len);
+		pkt->n_read += len;
 		spin_unlock_irqrestore(&ksb->lock, flags);
 
-		ret = copy_to_user(buf + copied, pkt->buf + pkt->n_read, len);
+		ret = copy_to_user(buf + copied, pkt->buf, len);
 		if (ret) {
 			pr_err("copy_to_user failed err:%d\n", ret);
 			ksb_free_data_pkt(pkt);
 			return ret;
 		}
 
-		pkt->n_read += len;
 		space -= len;
 		copied += len;
 
@@ -653,6 +653,7 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	}
 	spin_unlock_irqrestore(&ksb->lock, flags);
 
+	misc_deregister(ksb->fs_dev);
 	ifc->needs_remote_wakeup = 0;
 	usb_put_dev(ksb->udev);
 	ksb->ifc = NULL;

@@ -93,12 +93,6 @@ enum {
 #define MDP4_PANEL_WRITEBACK		BIT(6)
 
 enum {
-	OVERLAY_BLT_SWITCH_TG_ON,
-	OVERLAY_BLT_SWITCH_TG_OFF,
-	OVERLAY_BLT_ALWAYS_ON
-};
-
-enum {
 	OVERLAY_MODE_NONE,
 	OVERLAY_MODE_BLT
 };
@@ -166,7 +160,7 @@ enum {
 };
 
 enum {
-	MDP4_MIXER_STAGE_UNUNSED,	/* pipe not used */
+	MDP4_MIXER_STAGE_UNUSED,	/* pipe not used */
 	MDP4_MIXER_STAGE_BASE,
 	MDP4_MIXER_STAGE0,	/* zorder 0 */
 	MDP4_MIXER_STAGE1,	/* zorder 1 */
@@ -366,7 +360,7 @@ struct mdp4_overlay_pipe {
 	uint32 ov_cnt;
 	uint32 dmap_cnt;
 	uint32 dmae_cnt;
-	uint32 blt_end;
+	uint32 blt_end;	/* used by mddi only */
 	uint32 blt_ov_koff;
 	uint32 blt_ov_done;
 	uint32 blt_dmap_koff;
@@ -377,9 +371,14 @@ struct mdp4_overlay_pipe {
 	uint32 luma_align_size;
 	struct mdp_overlay_pp_params pp_cfg;
 	struct mdp_overlay req_data;
-	struct completion comp;
-	struct completion dmas_comp;
-	struct mdp4_iommu_pipe_info iommu;
+        struct completion comp;
+        struct completion dmas_comp;
+        struct mdp4_iommu_pipe_info iommu;
+
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	uint32 ext_flag;
+	struct msm_fb_data_type *mfd;
+#endif
 };
 
 struct mdp4_statistic {
@@ -789,8 +788,16 @@ void mdp4_dsi_cmd_wait4vsync(int cndx);
 void mdp4_dsi_video_wait4vsync(int cndx);
 void mdp4_dsi_cmd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_video_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
+int mdp4_dsi_video_pipe_commit(int cndx, int wait);
+int mdp4_dsi_cmd_pipe_commit(int cndx, int wait);
 void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info, int enable);
 void mdp4_dsi_video_vsync_ctrl(struct fb_info *info, int enable);
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT) \
+	|| defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) \
+       || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT_PANEL)
+void mdp4_overlay_dsi_video_start(void);
+#endif
+
 #ifdef CONFIG_FB_MSM_MDP303
 static inline void mdp4_dsi_cmd_del_timer(void)
 {
@@ -838,6 +845,14 @@ static inline void mdp4_dsi_video_pipe_queue(int cndx,
 			struct mdp4_overlay_pipe *pipe)
 {
 }
+static inline int mdp4_dsi_video_pipe_commit(int cndx, int wait)
+{
+	return 0;
+}
+static inline int mdp4_dsi_cmd_pipe_commit(int cndx, int wait)
+{
+	return 0;
+}
 static inline void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info,
 				int enable)
 {
@@ -846,7 +861,6 @@ static inline void mdp4_dsi_video_vsync_ctrl(struct fb_info *info,
 				int enable)
 {
 }
-
 static inline void mdp4_overlay_dsi_video_start(void)
 {
 	/* empty */

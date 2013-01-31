@@ -715,6 +715,14 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	/* Get Absolute Load - in terms of freq */
 	max_load_freq = 0;
+/* for sanity check for dbs.. */
+#ifdef CONFIG_LGE_PM
+    if(policy==NULL)
+    {
+        printk(KERN_ERR "policy is not set please check drivers\n");
+        return;
+    }
+#endif
 
 	for_each_cpu(j, policy->cpus) {
 		struct cpu_dbs_info_s *j_dbs_info;
@@ -1153,6 +1161,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
+
 		dbs_timer_exit(this_dbs_info);
 
 		mutex_lock(&dbs_mutex);
@@ -1171,6 +1180,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
+
 		mutex_lock(&this_dbs_info->timer_mutex);
 		if (policy->max < this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(this_dbs_info->cur_policy,
@@ -1219,6 +1229,8 @@ static int __init cpufreq_gov_dbs_init(void)
 		printk(KERN_ERR "Failed to create iewq workqueue\n");
 		return -EFAULT;
 	}
+	printk(KERN_ERR "Create iewq workqueue\n");
+
 	for_each_possible_cpu(i) {
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(od_cpu_dbs_info, i);

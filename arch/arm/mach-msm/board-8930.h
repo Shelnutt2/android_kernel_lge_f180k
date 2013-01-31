@@ -132,6 +132,7 @@ void msm8930_init_cam(void);
 void msm8930_init_fb(void);
 void msm8930_init_pmic(void);
 extern void msm8930_add_vidc_device(void);
+unsigned char msm8930_mhl_display_enabled(void);
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes

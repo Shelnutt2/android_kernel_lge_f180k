@@ -95,7 +95,7 @@ extern void l2x0_cache_sync(void);
 
 #if defined(CONFIG_ARCH_MSM8X60) || defined(CONFIG_ARCH_MSM8960)
 extern void store_ttbr0(void);
-#ifdef CONFIG_LGE_CRASH_HANDLER
+#ifdef CONFIG_LGE_HANDLE_PANIC
 extern void store_ctrl(void);
 extern void store_dac(void);
 #endif

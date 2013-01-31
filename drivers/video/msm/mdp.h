@@ -94,6 +94,7 @@ extern unsigned char hdmi_prim_resolution;
 
 struct vsync {
 	ktime_t vsync_time;
+	struct completion vsync_comp;
 	struct device *dev;
 	struct work_struct vsync_work;
 	int vsync_irq_enabled;
@@ -731,7 +732,7 @@ extern struct mdp_hist_mgmt *mdp_hist_mgmt_array[];
 #define MDP_DMA_P_LUT_C2_EN   BIT(2)
 #define MDP_DMA_P_LUT_POST    BIT(4)
 
-void mdp_hw_init(void);
+void mdp_hw_init(int splash);
 int mdp_ppp_pipe_wait(void);
 void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd);
 void mdp_clk_ctrl(int on);
@@ -924,26 +925,5 @@ static inline void mdp_vid_quant_set(void)
 {
 	/* empty */
 }
-#endif
-
-#ifdef CONFIG_UPDATE_LCDC_LUT
-#define R_MASK    0x00ff0000
-#define G_MASK    0x000000ff
-#define B_MASK    0x0000ff00
-#define R_SHIFT   16
-#define G_SHIFT   0
-#define B_SHIFT   8
-#define lut2r(lut) ((lut & R_MASK) >> R_SHIFT)
-#define lut2g(lut) ((lut & G_MASK) >> G_SHIFT)
-#define lut2b(lut) ((lut & B_MASK) >> B_SHIFT)
-
-#ifdef CONFIG_LCD_KCAL
-#define NUM_QLUT  256
-#define MAX_KCAL_V (NUM_QLUT-1)
-#define scaled_by_kcal(rgb, kcal) \
-		(((((unsigned int)(rgb) * (unsigned int)(kcal)) << 16) / \
-		(unsigned int)MAX_KCAL_V) >> 16)
-#endif
-int mdp_preset_lut_update_lcdc(struct fb_cmap *cmap, uint32_t *internal_lut);
 #endif
 #endif /* MDP_H */

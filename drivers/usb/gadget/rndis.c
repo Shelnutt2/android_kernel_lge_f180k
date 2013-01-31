@@ -963,6 +963,14 @@ void rndis_set_max_pkt_xfer(u8 configNr, u8 max_pkt_per_xfer)
 	rndis_per_dev_params[configNr].max_pkt_per_xfer = max_pkt_per_xfer;
 }
 
+void rndis_set_pkt_alignment_factor(u8 configNr, u8 pkt_alignment_factor)
+{
+	pr_debug("%s:\n", __func__);
+
+	rndis_per_dev_params[configNr].pkt_alignment_factor =
+					pkt_alignment_factor;
+}
+
 void rndis_add_hdr(struct sk_buff *skb)
 {
 	struct rndis_packet_msg_type *header;

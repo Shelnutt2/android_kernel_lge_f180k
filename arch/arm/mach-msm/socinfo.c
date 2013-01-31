@@ -255,6 +255,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[127] = MSM_CPU_8625,
 	[128] = MSM_CPU_8625,
 	[129] = MSM_CPU_8625,
+	[137] = MSM_CPU_8625,
 
 	/* 8064 MPQ ID */
 	[130] = MSM_CPU_8064,
@@ -309,6 +310,35 @@ static struct socinfo_v1 dummy_socinfo = {
 	.format = 1,
 	.version = 1,
 };
+
+#if defined (CONFIG_LGE_PM)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+u16 *poweron_st = 0;
+uint16_t power_on_status_info_get(void)
+{
+    poweron_st = smem_alloc(SMEM_POWER_ON_STATUS_INFO, sizeof(poweron_st));
+
+    if( poweron_st == NULL ) return 0 ;
+    return *poweron_st;
+}
+EXPORT_SYMBOL(power_on_status_info_get);
+
+
+u32 *batt_info = 0;
+uint32_t battery_info_get(void)
+{
+    batt_info = smem_alloc(SMEM_BATT_INFO, sizeof(batt_info));
+
+    if (batt_info == NULL) {
+		pr_err("%s: smem_alloc returns NULL\n", __func__);
+		return 0;
+    }
+
+    return *batt_info;
+}
+EXPORT_SYMBOL(battery_info_get);
+#endif
+#endif
 
 uint32_t socinfo_get_id(void)
 {
@@ -737,6 +767,11 @@ static void * __init setup_dummy_socinfo(void)
 			sizeof(dummy_socinfo.build_id));
 	} else if (machine_is_msm8625_rumi3())
 		dummy_socinfo.id = 127;
+	else if (early_machine_is_mpq8092()) {
+		dummy_socinfo.id = 146;
+		strlcpy(dummy_socinfo.build_id, "mpq8092 - ",
+		sizeof(dummy_socinfo.build_id));
+	}
 	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
 		sizeof(dummy_socinfo.build_id));
 	return (void *) &dummy_socinfo;

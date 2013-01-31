@@ -268,11 +268,6 @@ void __init msm_8974_reserve(void)
 	msm_reserve();
 }
 
-static struct platform_device android_usb_device = {
-	.name	= "android_usb",
-	.id	= -1,
-};
-
 #define BIMC_BASE	0xfc380000
 #define BIMC_SIZE	0x0006A000
 #define SYS_NOC_BASE	0xfc460000
@@ -399,6 +394,33 @@ static struct platform_device *msm_bus_8974_devices[] = {
 	&msm_fm_platform_init,
 };
 
+static struct attribute *mxt336s_properties_attrs[] = {
+	&mxt336s_vkeys_attr.attr,
+	NULL
+};
+
+static struct attribute_group mxt336s_properties_attr_group = {
+	.attrs = mxt336s_properties_attrs,
+};
+
+static void mxt_init_vkeys_8974(void)
+{
+	int rc = 0;
+	static struct kobject *mxt336s_properties_kobj;
+
+	mxt336s_vkeys_attr.attr.name = "virtualkeys.atmel_mxt_ts";
+	mxt336s_properties_kobj = kobject_create_and_add("board_properties",
+								NULL);
+	if (mxt336s_properties_kobj)
+		rc = sysfs_create_group(mxt336s_properties_kobj,
+					&mxt336s_properties_attr_group);
+	if (!mxt336s_properties_kobj || rc)
+		pr_err("%s: failed to create board_properties\n",
+				__func__);
+
+	return;
+}
+
 static void __init msm8974_init_buses(void)
 {
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -418,7 +440,6 @@ static void __init msm8974_init_buses(void)
 void __init msm_8974_add_devices(void)
 {
 	platform_device_register(&msm_device_smd_8974);
-	platform_device_register(&android_usb_device);
 }
 
 /*
@@ -442,6 +463,7 @@ void __init msm_8974_add_drivers(void)
 		msm_clock_init(&msm8974_clock_init_data);
 	msm8974_init_buses();
 	msm_thermal_device_init();
+	mxt_init_vkeys_8974();
 }
 
 static struct of_device_id irq_match[] __initdata  = {

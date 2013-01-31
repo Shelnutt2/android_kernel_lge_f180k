@@ -144,8 +144,6 @@ struct mmc_platform_data {
 	unsigned int uhs_caps;
 	/* More capabilities */
 	unsigned int uhs_caps2;
-	/* Supported packed write */
-	unsigned int packed_write;
 	void (*sdio_lpm_gpio_setup)(struct device *, unsigned int);
         unsigned int status_irq;
 	int status_gpio;
@@ -172,6 +170,7 @@ struct mmc_platform_data {
 	bool disable_cmd23;
 	u32 cpu_dma_latency;
 	struct msm_mmc_bus_voting_data *msm_bus_voting_data;
+	bool hw_rev_sd_low;
 };
 
 #endif

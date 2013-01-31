@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,19 +24,17 @@
 
 #ifdef CONFIG_MSM_DCVS
 static struct msm_dcvs_freq_entry grp3d_freq[] = {
-	{0, 900, 0, 0, 0},
-	{0, 950, 0, 0, 0},
-	{0, 950, 0, 0, 0},
-	{0, 1200, 1, 100, 100},
+	{0, 0, 333932},
+	{0, 0, 497532},
+	{0, 0, 707610},
+	{0, 0, 844545},
 };
 
 static struct msm_dcvs_core_info grp3d_core_info = {
-	.freq_tbl		= &grp3d_freq[0],
-	.num_cores		= 1,
-	.sensors		= (int[]){0},
-	.thermal_poll_ms	= 60000,
-	.core_param		= {
-		.core_type	= MSM_DCVS_CORE_TYPE_GPU,
+	.freq_tbl = &grp3d_freq[0],
+	.core_param = {
+		.max_time_us = 100000,
+		.num_freq = ARRAY_SIZE(grp3d_freq),
 	},
 	.algo_param		= {
 		.disable_pc_threshold	= 0,
@@ -53,22 +51,6 @@ static struct msm_dcvs_core_info grp3d_core_info = {
 		.ss_util_pct		= 95,
 		.ss_no_corr_below_freq	= 0,
 	},
-
-	.energy_coeffs		= {
-		.leakage_coeff_a	= -17720,
-		.leakage_coeff_b	= 37,
-		.leakage_coeff_c	= 3329,
-		.leakage_coeff_d	= -277,
-
-		.active_coeff_a		= 2492,
-		.active_coeff_b		= 0,
-		.active_coeff_c		= 0
-	},
-
-	.power_param		= {
-		.current_temp	= 25,
-		.num_freq	= ARRAY_SIZE(grp3d_freq),
-	}
 };
 #endif /* CONFIG_MSM_DCVS */
 

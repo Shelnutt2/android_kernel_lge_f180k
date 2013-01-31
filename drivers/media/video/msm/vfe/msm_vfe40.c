@@ -3556,7 +3556,7 @@ static void vfe40_process_error_irq(
 			NOTIFY_VFE_CAMIF_ERROR, (void *)NULL);
 		pr_err("camifStatus  = 0x%x\n", reg_value);
 		vfe40_send_isp_msg(&axi_ctrl->subdev,
-			axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_CAMIF_ERROR);
+			axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_VFE_ERROR);
 	}
 
 	if (errStatus & VFE40_IMASK_BHIST_OVWR)

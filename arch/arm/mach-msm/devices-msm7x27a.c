@@ -849,7 +849,7 @@ static struct platform_device msm_mdp_device = {
 	.resource       = msm_mdp_resources,
 };
 
-static struct platform_device msm_lcdc_device = {
+struct platform_device msm_lcdc_device = {
 	.name   = "lcdc",
 	.id     = 0,
 };
@@ -919,8 +919,13 @@ void __init msm8x25_kgsl_3d0_init(void)
 	if (cpu_is_msm8625()) {
 		kgsl_3d0_pdata.idle_timeout = HZ/5;
 		kgsl_3d0_pdata.strtstp_sleepwake = false;
-		/* 8x25 supports a higher GPU frequency */
-		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 320000000;
+
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
+			/* 8x25 v2.0 & above supports a higher GPU frequency */
+			kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 320000000;
+		else
+			kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 300000000;
+
 		kgsl_3d0_pdata.pwrlevel[0].bus_freq = 200000000;
 	}
 }
@@ -1272,8 +1277,8 @@ static struct resource msm8625_resources_sdc3[] = {
 	},
 	{
 		.name	= "dma_chnl",
-		.start	= DMOV_SDC3_CHAN,
-		.end	= DMOV_SDC3_CHAN,
+		.start	= DMOV_NAND_CHAN,
+		.end	= DMOV_NAND_CHAN,
 		.flags	= IORESOURCE_DMA,
 	},
 	{

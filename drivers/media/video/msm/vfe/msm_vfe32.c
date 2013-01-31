@@ -28,6 +28,15 @@
 #include "msm_cam_server.h"
 #include "msm_vfe32.h"
 
+//Start LGE_BSP_CAMERA::youngwook.song@lge.com WBT Error
+#define BUFFER_SIZE_10 10
+//End LGE_BSP_CAMERA::youngwook.song@lge.com WBT Error
+//Start LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
+#include <linux/syscalls.h>
+int BrightnessDownRatio = 3;
+int CurrentBrightnessValue;
+int ControlBrightnessValue;
+//End LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
 atomic_t irq_cnt;
 
 #define VFE32_AXI_OFFSET 0x0050
@@ -137,7 +146,9 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 		{VFE_CMD_EPOCH2_ACK},
 		{VFE_CMD_START_RECORDING},
 /*60*/	{VFE_CMD_STOP_RECORDING},
-		{VFE_CMD_DUMMY_5},
+//Start LGE_BSP_CAMERA : iommu page fault patch for JB - jonghwan.ko@lge.com
+		{VFE_CMD_STOP_RECORDING_DONE},  //		{VFE_CMD_DUMMY_5},
+//End  LGE_BSP_CAMERA : iommu page fault patch for JB - jonghwan.ko@lge.com
 		{VFE_CMD_DUMMY_6},
 		{VFE_CMD_CAPTURE, V32_CAPTURE_LEN, 0xFF},
 		{VFE_CMD_DUMMY_7},
@@ -232,11 +243,26 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 		{VFE_CMD_STATS_UNREGBUF},
 		{VFE_CMD_STATS_BG_START, V32_STATS_BG_LEN, V32_STATS_BG_OFF},
 		{VFE_CMD_STATS_BG_STOP},
-		{VFE_CMD_STATS_BF_START, V32_STATS_BF_LEN, V32_STATS_BF_OFF},
-/*145*/ {VFE_CMD_STATS_BF_STOP},
+/*145*/	{VFE_CMD_STATS_BF_START, V32_STATS_BF_LEN, V32_STATS_BF_OFF},
+		{VFE_CMD_STATS_BF_STOP},
 		{VFE_CMD_STATS_BHIST_START, V32_STATS_BHIST_LEN,
 			V32_STATS_BHIST_OFF},
-/*147*/	{VFE_CMD_STATS_BHIST_STOP},
+		{VFE_CMD_STATS_BHIST_STOP},
+		{VFE_CMD_RESET_2},
+/*150*/	{VFE_CMD_FOV_ENC_CFG},
+		{VFE_CMD_FOV_VIEW_CFG},
+		{VFE_CMD_FOV_ENC_UPDATE},
+		{VFE_CMD_FOV_VIEW_UPDATE},
+		{VFE_CMD_SCALER_ENC_CFG},
+/*155*/	{VFE_CMD_SCALER_VIEW_CFG},
+		{VFE_CMD_SCALER_ENC_UPDATE},
+		{VFE_CMD_SCALER_VIEW_UPDATE},
+		{VFE_CMD_COLORXFORM_ENC_CFG},
+		{VFE_CMD_COLORXFORM_VIEW_CFG},
+/*160*/	{VFE_CMD_COLORXFORM_ENC_UPDATE},
+		{VFE_CMD_COLORXFORM_VIEW_UPDATE},
+		{VFE_CMD_TEST_GEN_CFG},
+		{VFE_CMD_STOP_RECORDING_DONE},
 };
 
 uint32_t vfe32_AXI_WM_CFG[] = {
@@ -399,7 +425,21 @@ static const char * const vfe32_general_cmd[] = {
 	"STATS_BF_STOP",
 	"STATS_BHIST_START",
 	"STATS_BHIST_STOP",
-	"RESET_2",
+	"VFE_CMD_RESET_2",
+	"VFE_CMD_FOV_ENC_CFG",
+	"VFE_CMD_FOV_VIEW_CFG",
+	"VFE_CMD_FOV_ENC_UPDATE",
+	"VFE_CMD_FOV_VIEW_UPDATE",
+	"VFE_CMD_SCALER_ENC_CFG",
+	"VFE_CMD_SCALER_VIEW_CFG",
+	"VFE_CMD_SCALER_ENC_UPDATE",
+	"VFE_CMD_SCALER_VIEW_UPDATE",
+	"VFE_CMD_COLORXFORM_ENC_CFG",
+	"VFE_CMD_COLORXFORM_VIEW_CFG",
+	"VFE_CMD_COLORXFORM_ENC_UPDATE",
+	"VFE_CMD_COLORXFORM_VIEW_UPDATE",
+	"VFE_CMD_TEST_GEN_CFG",
+	"VFE_CMD_STOP_RECORDING_DONE",
 };
 
 uint8_t vfe32_use_bayer_stats(struct vfe32_ctrl_type *vfe32_ctrl)
@@ -1567,6 +1607,15 @@ static int vfe32_stop_recording(
 	return 0;
 }
 
+//Start LGE_BSP_CAMERA : iommu page fault patch for JB - jonghwan.ko@lge.com
+static void vfe32_stop_recording_done(
+	struct msm_cam_media_controller *pmctl,
+	struct vfe32_ctrl_type *vfe32_ctrl)
+{
+	msm_camio_bus_scale_cfg(pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
+}
+//End  LGE_BSP_CAMERA : iommu page fault patch for JB - jonghwan.ko@lge.com
+
 static void vfe32_start_liveshot(
 	struct msm_cam_media_controller *pmctl,
 	struct vfe32_ctrl_type *vfe32_ctrl)
@@ -1608,7 +1657,7 @@ static int vfe32_capture_raw(
 {
 	vfe32_ctrl->share_ctrl->outpath.out0.capture_cnt = num_frames_capture;
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
-	vfe32_start_common(vfe32_ctrl);
+	vfe32_start_common(pmctl, vfe32_ctrl); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	return 0;
 }
 
@@ -1635,7 +1684,7 @@ static int vfe32_capture(
 
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
 
-	vfe32_start_common(vfe32_ctrl);
+	vfe32_start_common(pmctl, vfe32_ctrl); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	/* for debug */
 	msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + 0x18C);
 	msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + 0x188);
@@ -1646,7 +1695,7 @@ static int vfe32_start(
 	struct msm_cam_media_controller *pmctl,
 	struct vfe32_ctrl_type *vfe32_ctrl)
 {
-	vfe32_start_common(vfe32_ctrl);
+	vfe32_start_common(pmctl, vfe32_ctrl); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	return 0;
 }
 
@@ -2006,6 +2055,62 @@ static void vfe32_send_isp_msg(
 			(void *)&isp_msg_evt);
 }
 
+//Start LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
+static int atoi(const char *name)
+{
+	int val = 0;
+	for (;; name++) {
+		switch (*name) {
+		case '0' ... '9':
+			val = 10*val+(*name-'0');
+			break;
+		default:
+			return val;
+		}
+	}
+}
+static void Set_LCD_Brightness(int value)
+{
+    int fd;
+    mm_segment_t old_fs = get_fs();
+	set_fs(KERNEL_DS);
+    fd = sys_open("/sys/class/leds/lcd-backlight/brightness", O_RDWR | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+        char buffer[10];
+//Start LGE_BSP_CAMERA::youngwook.song@lge.com WBT Error
+        int bytes = snprintf(buffer, BUFFER_SIZE_10, "%d\n", value);
+//End LGE_BSP_CAMERA::youngwook.song@lge.com WBT Error
+        sys_write(fd, buffer, bytes);
+        sys_close(fd);
+    }
+	else
+	{
+	    printk("%s: Open Error\n",__func__);
+	}
+	set_fs(old_fs);
+}
+static int Get_LCD_Brightness(void)
+{
+	int fd;
+	int value = 0;
+	mm_segment_t old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	fd = sys_open("/sys/class/leds/lcd-backlight/brightness", O_RDWR | O_CREAT | O_APPEND, 0644);
+	if (fd >= 0)
+	{
+		char buffer[10];
+		sys_read(fd,buffer,10);
+		value = atoi(buffer);
+		sys_close(fd);
+	}
+	else
+	{
+	    printk("%s: Open Error\n",__func__);
+	}
+	set_fs(old_fs);
+	return value;
+}
+//End LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
 static int vfe32_proc_general(
 	struct msm_cam_media_controller *pmctl,
 	struct msm_isp_cmd *cmd,
@@ -2077,13 +2182,33 @@ static int vfe32_proc_general(
 	case VFE_CMD_START_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
+		//Start LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
+		CurrentBrightnessValue = Get_LCD_Brightness();
+		if (CurrentBrightnessValue > 140)
+		{
+			ControlBrightnessValue = CurrentBrightnessValue * (100-BrightnessDownRatio) / 100;
+			Set_LCD_Brightness(ControlBrightnessValue);
+			printk("[LCD_Control] Control LCD Brightness = %d\n",ControlBrightnessValue);
+		}
+		printk("[LCD_Control] Current LCD Brightness = %d\n",CurrentBrightnessValue);
+		//End LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
 		rc = vfe32_start_recording(pmctl, vfe32_ctrl);
 		break;
 	case VFE_CMD_STOP_RECORDING:
 		pr_info("vfe32_proc_general: cmdID = %s\n",
 			vfe32_general_cmd[cmd->id]);
 		rc = vfe32_stop_recording(pmctl, vfe32_ctrl);
+		break;		
+//Start LGE_BSP_CAMERA : iommu page fault patch for JB - jonghwan.ko@lge.com
+	case VFE_CMD_STOP_RECORDING_DONE:
+		pr_info("vfe32_proc_general: cmdID = VFE_CMD_STOP_RECORDING_DONE\n");
+		//Start LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
+		printk("[LCD_Control] Current LCD Brightness = %d\n",CurrentBrightnessValue);
+		Set_LCD_Brightness(CurrentBrightnessValue);
+		//End LGE_BSP_CAMERA::seongjo.kim@lge.com LCD Brightness down when camcording enter
+		vfe32_stop_recording_done(pmctl, vfe32_ctrl);
 		break;
+//End  LGE_BSP_CAMERA : iommu page fault patch for JB - jonghwan.ko@lge.com
 	case VFE_CMD_OPERATION_CFG: {
 		if (cmd->length != V32_OPERATION_CFG_LEN) {
 			rc = -EINVAL;
@@ -3107,6 +3232,7 @@ static int vfe32_proc_general(
 		}
 
 		vfe32_stop(vfe32_ctrl);
+		pmctl->hardware_running = 0; /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 		break;
 
 	case VFE_CMD_SYNC_TIMER_SETTING:
@@ -4093,7 +4219,14 @@ static void vfe32_process_camif_sof_irq(
 		return;
 	}
 	if (vfe32_ctrl->vfe_sof_count_enable)
+	{
 		vfe32_ctrl->share_ctrl->vfeFrameId++;
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+		if (vfe32_ctrl->share_ctrl->vfeFrameId < 15) {
+			pr_err("%s: SOF frame id %d\n", __func__, vfe32_ctrl->share_ctrl->vfeFrameId);
+		}
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com		
+	}
 
 	vfe32_send_isp_msg(&vfe32_ctrl->subdev,
 		vfe32_ctrl->share_ctrl->vfeFrameId, MSG_ID_SOF_ACK);
@@ -4124,10 +4257,10 @@ static void vfe32_process_error_irq(
 		reg_value = msm_camera_io_r(
 			axi_ctrl->share_ctrl->vfebase + VFE_CAMIF_STATUS);
 		v4l2_subdev_notify(&axi_ctrl->subdev,
-			NOTIFY_VFE_CAMIF_ERROR, (void *)NULL);
+			NOTIFY_VFE_ERROR, (void *)NULL);
 		pr_err("camifStatus  = 0x%x\n", reg_value);
 		vfe32_send_isp_msg(&axi_ctrl->subdev,
-			axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_CAMIF_ERROR);
+			axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_VFE_ERROR);
 	}
 
 	if (errStatus & VFE32_IMASK_BHIST_OVWR)
@@ -4197,6 +4330,11 @@ static void vfe32_process_common_error_irq(
 
 	if (errStatus & VFE32_IMASK_AXI_ERROR)
 		pr_err("vfe32_irq: axi error\n");
+
+	v4l2_subdev_notify(&axi_ctrl->subdev, NOTIFY_VFE_ERROR,
+		(void *)NULL);
+	vfe32_send_isp_msg(&axi_ctrl->subdev,
+		axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_VFE_ERROR);
 }
 
 
@@ -4451,7 +4589,7 @@ static void vfe32_process_output_path_irq_rdi0(
 
 		} else {
 			axi_ctrl->share_ctrl->outpath.out2.frame_drop_cnt++;
-			pr_err("path_irq_2 irq - no free buffer for rdi0!\n");
+			CDBG("path_irq_2 irq - no free buffer for rdi0!\n");
 		}
 	}
 }
@@ -4464,6 +4602,7 @@ static void vfe32_process_output_path_irq_rdi1(
 	/* this must be rdi image output. */
 	struct msm_free_buf *free_buf = NULL;
 	/*RDI1*/
+	CDBG("rdi1 out irq\n");
 	if (axi_ctrl->share_ctrl->operation_mode & VFE_OUTPUTS_RDI1) {
 		free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 			VFE_MSG_OUTPUT_TERTIARY2, axi_ctrl);
@@ -4491,12 +4630,12 @@ static void vfe32_process_output_path_irq_rdi1(
 				outpath.out3.capture_cnt = 0;
 
 			vfe_send_outmsg(axi_ctrl,
-				MSG_ID_OUTPUT_TERTIARY2, ch0_paddr,
+				MSG_ID_OUTPUT_TERTIARY3, ch0_paddr,
 				0, 0,
-				axi_ctrl->share_ctrl->outpath.out3.inst_handle);
+				axi_ctrl->share_ctrl->outpath.out4.inst_handle);
 		} else {
-			axi_ctrl->share_ctrl->outpath.out3.frame_drop_cnt++;
-			pr_err("path_irq irq - no free buffer for rdi1!\n");
+			axi_ctrl->share_ctrl->outpath.out4.frame_drop_cnt++;
+			CDBG("path_irq irq - no free buffer for rdi2!\n");
 		}
 	}
 }
@@ -5841,7 +5980,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd)
 	vfe32_ctrl->update_rolloff = false;
 	vfe32_ctrl->update_la = false;
 	vfe32_ctrl->update_gamma = false;
-	vfe32_ctrl->vfe_sof_count_enable = false;
+	vfe32_ctrl->vfe_sof_count_enable = true;
 	vfe32_ctrl->hfr_mode = HFR_MODE_OFF;
 
 	memset(&vfe32_ctrl->stats_ctrl, 0,
@@ -6526,6 +6665,8 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 			return -EFAULT;
 		}
 	}
+
+	pr_err("[RDI] %s: cfgcmd.cmd_type = %d \n", __func__,cfgcmd.cmd_type );
 
 	vfe_cmd_type = (cfgcmd.cmd_type & ~(CMD_AXI_CFG_TERT1|
 		CMD_AXI_CFG_TERT2 | CMD_AXI_CFG_TERT3));

@@ -46,7 +46,6 @@
 #include <mach/cpuidle.h>
 #include "idle.h"
 #include "pm.h"
-#include "rpm_resources.h"
 #include "scm-boot.h"
 #include "spm.h"
 #include "timer.h"
@@ -573,6 +572,13 @@ static bool __ref msm_pm_spm_power_collapse(
 	return collapsed;
 }
 
+static unsigned long msm_pm_acpuclk_power_collapse(void)
+{
+       unsigned long rate = acpuclk_get_rate(smp_processor_id());
+       acpuclk_set_rate(smp_processor_id(), 384000, SETRATE_PC);
+       return rate;
+}
+
 static bool msm_pm_power_collapse_standalone(bool from_idle)
 {
 	unsigned int cpu = smp_processor_id();
@@ -612,7 +618,7 @@ static bool msm_pm_power_collapse(bool from_idle)
 	avs_set_avscsr(0); /* Disable AVS */
 
 	if (cpu_online(cpu))
-		saved_acpuclk_rate = acpuclk_power_collapse();
+		saved_acpuclk_rate = msm_pm_acpuclk_power_collapse();
 	else
 		saved_acpuclk_rate = 0;
 

@@ -42,6 +42,13 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	int err = 0;
 	int write_ptrs_available;
 
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+	if(diag_enable == 0)
+	{
+		pr_debug("diag: [diag_read_hsic_work_fn] mdm_diag diabled\n");
+		return;
+	}
+#endif
 	if (!driver->hsic_ch) {
 		pr_err("DIAG in %s: driver->hsic_ch == 0\n", __func__);
 		return;
@@ -57,6 +64,13 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	else
 		write_ptrs_available = driver->poolsize_hsic_write -
 					driver->count_hsic_write_pool;
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		write_ptrs_available = driver->poolsize_hsic_write -
+					driver->num_hsic_buf_tbl_entries;
+	}
+#endif
 
 	/*
 	 * Queue up a read on the HSIC for all available buffers in the
@@ -180,6 +194,13 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 		queue_work(diag_bridge[HSIC].wq,
 				 &driver->diag_read_hsic_work);
 	}
+
+#ifdef CONFIG_LGE_DM_APP
+	if (err && (driver->logging_mode == DM_APP_MODE))
+		queue_work(driver->diag_bridge_wq,
+				 &driver->diag_read_hsic_work);
+#endif
+
 }
 
 static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
@@ -214,6 +235,11 @@ static int diag_hsic_suspend(void *ctxt)
 	if (driver->logging_mode == MEMORY_DEVICE_MODE)
 		return -EBUSY;
 
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE)
+		return -EBUSY;
+#endif
+
 	driver->hsic_suspend = 1;
 
 	return 0;
@@ -229,6 +255,13 @@ static void diag_hsic_resume(void *ctxt)
 				(diag_bridge[HSIC].usb_connected)))
 		queue_work(diag_bridge[HSIC].wq,
 			 &driver->diag_read_hsic_work);
+#else
+	if ((driver->count_hsic_pool < driver->poolsize_hsic) &&
+		((driver->logging_mode == MEMORY_DEVICE_MODE) ||
+				(driver->usb_mdm_connected)))
+		queue_work(driver->diag_bridge_wq,
+			 &driver->diag_read_hsic_work);
+#endif
 }
 
 struct diag_bridge_ops hsic_diag_bridge_ops = {

@@ -54,7 +54,9 @@ module_param_named(stats_perms, proc_stats_perms, uint, S_IRUGO | S_IWUSR);
 
 static struct proc_dir_entry *xt_qtaguid_ctrl_file;
 #ifdef CONFIG_ANDROID_PARANOID_NETWORK
-static unsigned int proc_ctrl_perms = S_IRUGO | S_IWUGO;
+// LGE_DATA_CHANGE_S, [121114_COM_0065], http://dev.lge.com/wiki/datacop/patch_0065
+static unsigned int proc_ctrl_perms = S_IRUGO | (S_IWUSR|S_IWGRP);//S_IWUGO;
+// LGE_DATA_CHANGE_E, [121114_COM_0065], http://dev.lge.com/wiki/datacop/patch_0065
 #else
 static unsigned int proc_ctrl_perms = S_IRUGO | S_IWUSR;
 #endif

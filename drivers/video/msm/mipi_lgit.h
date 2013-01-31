@@ -34,4 +34,13 @@
 
 int mipi_lgit_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel);
+int mipi_lgit_lcd_on(struct platform_device *pdev);
+int mipi_lgit_lcd_off(struct platform_device *pdev);
+
+int mipi_lgit_lcd_off_for_shutdown(void);
+//LGE_UPDATE_S hojin.ryu@lge.com 20111107
+int mipi_lgit_lcd_ief_off(void);
+int mipi_lgit_lcd_ief_on(void);
+//LGE_UPDATE_E hojin.ryu@lge.com 20121107
+
 #endif  /* MIPI_LGIT_H */

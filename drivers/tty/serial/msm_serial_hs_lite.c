@@ -48,13 +48,6 @@
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
 
-#ifdef CONFIG_MACH_APQ8064_MAKO
-/* HACK: earjack noise due to HW flaw. disable console to avoid this issue */
-extern int mako_console_stopped(void);
-#else
-static inline int mako_console_stopped(void) { return 0; }
-#endif
-
 struct msm_hsl_port {
 	struct uart_port	uart;
 	char			name[16];
@@ -69,7 +62,7 @@ struct msm_hsl_port {
 	unsigned int            old_snap_state;
 	unsigned int		ver_id;
 	int			tx_timeout;
-	short			cons_flags;
+	uint8_t			isShutdown;
 };
 
 #define UARTDM_VERSION_11_13	0
@@ -347,6 +340,17 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 
 		sr = msm_hsl_read(port, regmap[vid][UARTDM_SR]);
 		if ((sr & UARTDM_SR_RXRDY_BMSK) == 0) {
+/* LGE_CHANGE
+ * In order to avoid old_snap_state be negative,
+ * workaround need to be made.
+ * This seems like a bug by QCT occuring in higher bit-rate (460800 bps)
+ * 2012-03-05, chaeuk.lee@lge.com
+ */
+#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+			if (msm_hsl_port->old_snap_state < count)
+				msm_hsl_port->old_snap_state = 0;
+			else
+#endif /* CONFIG_LGE_FELICA */
 			msm_hsl_port->old_snap_state -= count;
 			break;
 		}
@@ -516,6 +520,9 @@ static void msm_hsl_reset(struct uart_port *port)
 {
 	unsigned int vid = UART_TO_MSM(port)->ver_id;
 
+	if( !(UART_TO_MSM(port)->isShutdown) ) // gate a unclocked register
+	    return ;
+
 	/* reset everything */
 	msm_hsl_write(port, RESET_RX, regmap[vid][UARTDM_CR]);
 	msm_hsl_write(port, RESET_TX, regmap[vid][UARTDM_CR]);
@@ -578,6 +585,9 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 	unsigned int data;
 	unsigned int vid;
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+
+	if( !(UART_TO_MSM(port)->isShutdown) ) // gate a unclocked register
+	    return ;
 
 	switch (baud) {
 	case 300:
@@ -703,6 +713,8 @@ static int msm_hsl_startup(struct uart_port *port)
 	int ret;
 	unsigned long flags;
 
+	UART_TO_MSM(port)->isShutdown = 1 ; // use for shudown flag
+
 	snprintf(msm_hsl_port->name, sizeof(msm_hsl_port->name),
 		 "msm_serial_hsl%d", port->line);
 
@@ -780,6 +792,9 @@ static void msm_hsl_shutdown(struct uart_port *port)
 	const struct msm_serial_hslite_platform_data *pdata =
 					pdev->dev.platform_data;
 
+	UART_TO_MSM(port)->isShutdown = 0 ; // use for shudown flag
+
+
 	msm_hsl_port->imr = 0;
 	/* disable interrupts */
 	msm_hsl_write(port, 0, regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
@@ -815,6 +830,33 @@ static void msm_hsl_set_termios(struct uart_port *port,
 	/* calculate and set baud rate */
 	baud = uart_get_baud_rate(port, termios, old, 300, 460800);
 
+/* 20111205, chaeuk.lee@lge.com, Add IrDA UART [START]
+ * Set UART for IrDA
+ * 0x03 : UART_IRDA | RX_INVERT
+ * [CAUTION] UARTDM register must be set AFTER UARTDM clock has been set
+ */
+#ifdef CONFIG_LGE_IRDA
+	/*
+	GV ttyHLS3
+	J1D, J1KD ttyHSL1
+	*/
+	#if defined(CONFIG_MACH_APQ8064_GVDCM)
+	if(port->line == 3){
+		msm_hsl_write(port, 0x03, UARTDM_IRDA_ADDR);
+	}
+	#else
+	if(port->line == 1){
+		msm_hsl_write(port, 0x03, UARTDM_IRDA_ADDR);
+	}
+	#endif
+
+#endif
+/* 20111205, chaeuk.lee@lge.com, Add IrDA UART [END] */
+#ifdef CONFIG_LGE_IRRC
+       if(port->line ==1){
+              termios->c_cflag |= B19200;
+       }
+#endif
 	msm_hsl_set_baud_rate(port, baud);
 
 	vid = UART_TO_MSM(port)->ver_id;
@@ -1069,6 +1111,15 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.line = 2,
 		},
 	},
+	{
+		.uart = {
+			.iotype = UPIO_MEM,
+			.ops = &msm_hsl_uart_pops,
+			.flags = UPF_BOOT_AUTOCONF,
+			.fifosize = 64,
+			.line = 3,
+		},
+	},
 };
 
 #define UART_NR	ARRAY_SIZE(msm_hsl_uart_ports)
@@ -1167,11 +1218,6 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 	int locked;
 
 	BUG_ON(co->index < 0 || co->index >= UART_NR);
-
-#ifdef CONFIG_MACH_APQ8064_MAKO
-	if (mako_console_stopped())
-		return;
-#endif
 
 	port = get_port_from_line(co->index);
 	msm_hsl_port = UART_TO_MSM(port);
@@ -1483,11 +1529,8 @@ static int msm_serial_hsl_suspend(struct device *dev)
 
 	if (port) {
 
-		if (is_console(port)) {
-			struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
-			msm_hsl_port->cons_flags = port->cons->flags;
+		if (is_console(port))
 			msm_hsl_deinit_clock(port);
-		}
 
 		uart_suspend_port(&msm_hsl_uart_driver, port);
 		if (device_may_wakeup(dev))
@@ -1509,13 +1552,8 @@ static int msm_serial_hsl_resume(struct device *dev)
 		if (device_may_wakeup(dev))
 			disable_irq_wake(port->irq);
 
-		if (is_console(port)) {
-			struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
-			if (!(msm_hsl_port->cons_flags & CON_ENABLED) ||
-			    mako_console_stopped())
-				console_stop(port->cons);
+		if (is_console(port))
 			msm_hsl_init_clock(port);
-		}
 	}
 
 	return 0;

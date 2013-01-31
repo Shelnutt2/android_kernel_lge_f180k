@@ -138,6 +138,9 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	if (ion_map_iommu(client, region->handle, domain_num, 0,
 				  SZ_4K, 0, &paddr, &len, 0, 0) < 0)
 		goto out2;
+		// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-17 Add log for iommu issue debug
+		pr_err("%s: IOMMU mapped address is 0x%x\n", __func__, (unsigned int)paddr);
+		// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-17 Add log for iommu issue debug
 #elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
 	if (rc < 0) {

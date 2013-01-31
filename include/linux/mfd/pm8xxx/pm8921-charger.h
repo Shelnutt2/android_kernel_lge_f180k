@@ -195,6 +195,9 @@ enum pm8921_charger_source {
 	PM8921_CHG_SRC_USB,
 	PM8921_CHG_SRC_DC,
 };
+#ifdef CONFIG_BATTERY_MAX17043
+void pm8921_charger_force_update_batt_psy(void);
+#endif
 
 #if defined(CONFIG_PM8921_CHARGER) || defined(CONFIG_PM8921_CHARGER_MODULE)
 void pm8921_charger_vbus_draw(unsigned int mA);
@@ -222,6 +225,12 @@ int pm8921_is_dc_chg_plugged_in(void);
  */
 int pm8921_is_battery_present(void);
 
+#ifdef CONFIG_LGE_PM
+/*LGE_S jungwoo.yun@lge.com 2012-08-07 check battery preset regardless of factory cable*/
+int pm8921_is_real_battery_present(void);
+/*LGE_E jungwoo.yun@lge.com 2012-08-07 check battery preset regardless of factory cable*/
+int pm8921_chg_get_fsm_state(void);
+#endif
 /**
  * pm8921_set_max_battery_charge_current - set max battery chg current
  *
@@ -314,6 +323,12 @@ int pm8921_usb_ovp_disable(int disable);
  * batfet this will return 0.
  */
 int pm8921_is_batfet_closed(void);
+
+/* LGE_CHANGE_E 2012-09-22 */
+int pm8921_chg_batfet_set_ext(int on);
+int pm8921_chg_batfet_get_ext(void);
+/* LGE_CHANGE_E 2012-09-22 */
+
 #else
 static inline void pm8921_charger_vbus_draw(unsigned int mA)
 {
@@ -370,6 +385,11 @@ static inline int pm8921_batt_temperature(void)
 {
 	return -ENXIO;
 }
+#ifdef CONFIG_BATTERY_MAX17043
+static inline void pm8921_charger_force_update_batt_psy(void)
+{
+}
+#endif
 static inline int pm8921_usb_ovp_set_threshold(enum pm8921_usb_ov_threshold ov)
 {
 	return -ENXIO;

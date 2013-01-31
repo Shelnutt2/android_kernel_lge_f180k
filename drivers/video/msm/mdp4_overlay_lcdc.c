@@ -262,9 +262,9 @@ int mdp4_lcdc_pipe_commit(int cndx, int wait)
 
 	if (wait) {
 		if (pipe->ov_blt_addr)
-			mdp4_lcdc_wait4ov(0);
+			mdp4_lcdc_wait4ov(cndx);
 		else
-			mdp4_lcdc_wait4dmap(0);
+			mdp4_lcdc_wait4dmap(cndx);
 	}
 
 	return cnt;

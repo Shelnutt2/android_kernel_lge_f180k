@@ -106,3 +106,4 @@ struct bms_battery_data palladium_1500_data = {
 	.rbatt_sf_lut		= &rbatt_sf,
 	.default_rbatt_mohm	= 236,
 };
+/* LGE_S  1900mAh table from LG-Chemistry*/

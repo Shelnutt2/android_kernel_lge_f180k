@@ -13,6 +13,9 @@
 #ifndef DIAGCHAR_H
 #define DIAGCHAR_H
 
+//#define DEBUG
+//#define DIAG_DEBUG
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/mempool.h>

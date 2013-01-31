@@ -255,6 +255,8 @@ config ARCH_MSM8974
 	select MSM_PIL
 	select MSM_SPM_V2
 	select MSM_L2_SPM
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
 	select MSM_PM8X60 if PM
 	select MAY_HAVE_SPARSE_IRQ
 	select SPARSE_IRQ
@@ -421,6 +423,9 @@ config  ARCH_MSM_CORTEXMP
 	bool
 
 config  MSM_KRAIT_WFE_FIXUP
+	bool
+
+config  MSM_RESTART_V2
 	bool
 
 config  ARCH_MSM_CORTEX_A5
@@ -908,13 +913,9 @@ config MACH_FSM9XXX_SURF
 	  chipset based SURF evaluation board and
 	  FFA board.
 
-config MACH_MSM_DUMMY
-	bool "NONE (No device)"
-
 endmenu
 
 source "arch/arm/mach-msm/lge/Kconfig"
-
 config MSM_STACKED_MEMORY
 	bool "Stacked Memory"
 	default y
@@ -1071,6 +1072,14 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8974 devices.
+
+	config DEBUG_MPQ8092_UART
+                bool "Kernel low-level debugging messages via MPQ8092 UART"
+                depends on ARCH_MPQ8092
+                select MSM_HAS_DEBUG_UART_HS_V14
+                help
+                  Say Y here if you want the debug print routines to direct
+                  their output to the serial port on MPQ8092 devices.
 endchoice
 
 choice
@@ -2031,6 +2040,24 @@ config MSM_GSS_SSR_8064
 	 gss hardware watchdog interrupt lines and plugs into the subsystem
 	 restart and PIL drivers.
 
+config MSM_MODEM_SSR_8974
+	bool "MSM 8974 Modem restart driver"
+	depends on (ARCH_MSM8974)
+	help
+	 This option enables the modem subsystem restart driver for the MSM8974.
+	 It monitors the modem SMSM status bits and the modem watchdog line and
+	 restarts the modem or the 8974 when the modem encounters a fatal error,
+	 depending on the restart level selected in the subsystem restart driver.
+
+config MSM_ADSP_SSR_8974
+	bool "MSM 8974 adsp restart driver"
+	depends on (ARCH_MSM8974)
+	help
+	 This option enables the adsp restart driver for the MSM8974.
+	 It monitors the adsp SMSM status bits and the adsp watchdog line and
+	 restarts the adsp or the 8974 when the adsp encounters a fatal error,
+	 depending on the restart level selected in the subsystem restart driver.
+
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
 	depends on ARCH_MSM7X30 || (ARCH_QSD8X50 && MSM_SOC_REV_A)
@@ -2168,7 +2195,7 @@ config MSM_MEMORY_DUMP
 
 config MSM_DLOAD_MODE
 	bool "Enable download mode on crashes"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSM9615 || ARCH_MSM8974
 	default n
 	help
 		This makes the SoC enter download mode when it resets
@@ -2608,3 +2635,6 @@ config MSM_CPU_PWRCTL
 	  ensures that they are always off.
 
 endif
+config LGE_IRRC
+	tristate "LGE_IRRC"
+	default n

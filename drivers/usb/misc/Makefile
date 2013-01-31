@@ -30,6 +30,9 @@ obj-$(CONFIG_USB_YUREX)			+= yurex.o
 obj-$(CONFIG_USB_SISUSBVGA)		+= sisusbvga/
 
 obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE)	+= diag_bridge.o
+#[start][20120403][MDMBSP][secheol.pyo][EMS channel config]
+obj-$(CONFIG_LGE_EMS_CH) 		+= hsic_debug_ch.o
+#[end][20120403][MDMBSP][secheol.pyo][EMS channel config]
 obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE_TEST)	+= diag_bridge_test.o
 mdm_bridge-y				:= mdm_ctrl_bridge.o mdm_data_bridge.o
 obj-$(CONFIG_USB_QCOM_MDM_BRIDGE) 	+= mdm_bridge.o

@@ -1310,7 +1310,11 @@ void usb_hnp_polling_work(struct work_struct *work)
 		goto reschedule;
 
 start_hnp:
+#if 0
 	do_unbind_rebind(udev, DO_UNBIND);
+#else
+	unbind_no_pm_drivers_interfaces(udev);	
+#endif
 	udev->do_remote_wakeup = device_may_wakeup(&udev->dev);
 	ret = usb_suspend_both(udev, PMSG_USER_SUSPEND);
 	if (ret)
@@ -1411,7 +1415,6 @@ int usb_resume(struct device *dev, pm_message_t msg)
 	 * (This can't be done in usb_resume_interface()
 	 * above because it doesn't own the right set of locks.)
 	 */
-	pm_runtime_get_sync(dev->parent);
 	status = usb_resume_both(udev, msg);
 	if (status == 0) {
 		pm_runtime_disable(dev);
@@ -1419,7 +1422,6 @@ int usb_resume(struct device *dev, pm_message_t msg)
 		pm_runtime_enable(dev);
 		unbind_no_reset_resume_drivers_interfaces(udev);
 	}
-	pm_runtime_put_sync(dev->parent);
 
 	/* Avoid PM error messages for devices disconnected while suspended
 	 * as we'll display regular disconnect messages just a bit later.

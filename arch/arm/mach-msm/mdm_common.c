@@ -60,6 +60,10 @@ static int vddmin_gpios_sent;
 static struct mdm_modem_drv *mdm_drv;
 static struct subsys_device *mdm_subsys_dev;
 
+#ifdef CONFIG_LGE_EMS_CH
+int ems_mdm_crash_fatal_flag = false;	// set to true from MDM2AP_ERRFATAL(1)
+int ems_mdm_status_low_flag = false;	// set to true from MDM2AP_STATUS(0)
+#endif
 DECLARE_COMPLETION(mdm_needs_reload);
 DECLARE_COMPLETION(mdm_boot);
 DECLARE_COMPLETION(mdm_ram_dumps);
@@ -83,9 +87,9 @@ static irqreturn_t mdm_vddmin_change(int irq, void *dev_id)
 		mdm_drv->pdata->vddmin_resource->mdm2ap_vddmin_gpio);
 
 	if (value == 0)
-		pr_debug("External Modem entered Vddmin\n");
+		pr_info("External Modem entered Vddmin\n");
 	else
-		pr_debug("External Modem exited Vddmin\n");
+		pr_info("External Modem exited Vddmin\n");
 
 	return IRQ_HANDLED;
 }
@@ -291,13 +295,15 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 			pr_debug("%s Image upgrade not supported\n", __func__);
 		break;
 	case SHUTDOWN_CHARM:
+		if (!mdm_drv->pdata->send_shdn)
+			break;
 		mdm_drv->mdm_ready = 0;
 		if (mdm_debug_mask & MDM_DEBUG_MASK_SHDN_LOG)
 			pr_info("Sending shutdown request to mdm\n");
 		ret = sysmon_send_shutdown(SYSMON_SS_EXT_MODEM);
 		if (ret)
 			pr_err("%s: Graceful shutdown of the external modem failed, ret = %d\n",
-			   __func__, ret);
+				   __func__, ret);
 		break;
 	default:
 		pr_err("%s: invalid ioctl cmd = %d\n", __func__, _IOC_NR(cmd));
@@ -335,6 +341,9 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 		(gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 1)) {
 		pr_info("%s: Reseting the mdm due to an errfatal\n", __func__);
 		mdm_drv->mdm_ready = 0;
+#ifdef CONFIG_LGE_EMS_CH
+	ems_mdm_crash_fatal_flag = true;
+#endif
 		subsystem_restart_dev(mdm_subsys_dev);
 	}
 	return IRQ_HANDLED;
@@ -399,6 +408,9 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		pr_info("%s: unexpected reset external modem\n", __func__);
 		mdm_drv->mdm_unexpected_reset_occurred = 1;
 		mdm_drv->mdm_ready = 0;
+#ifdef CONFIG_LGE_EMS_CH
+		ems_mdm_status_low_flag = true;
+#endif		
 		subsystem_restart_dev(mdm_subsys_dev);
 	} else if (value == 1) {
 		cancel_delayed_work(&mdm2ap_status_check_work);

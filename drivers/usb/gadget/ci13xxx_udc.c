@@ -70,6 +70,12 @@
 #include "ci13xxx_udc.h"
 
 
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+#include <mach/board_lge.h>
+
+#define PORTSC_PFSC BIT(24)
+#endif
+
 /******************************************************************************
  * DEFINE
  *****************************************************************************/
@@ -319,6 +325,10 @@ static int hw_device_init(void __iomem *base)
  */
 static int hw_device_reset(struct ci13xxx *udc)
 {
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+    enum lge_boot_mode_type boot_mode;
+#endif
+
 	/* should flush & stop before reset */
 	hw_cwrite(CAP_ENDPTFLUSH, ~0, ~0);
 	hw_cwrite(CAP_USBCMD, USBCMD_RS, 0);
@@ -356,6 +366,22 @@ static int hw_device_reset(struct ci13xxx *udc)
 		pr_err("lpm = %i", hw_bank.lpm);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_USB_G_LGE_ANDROID_PFSC
+    /* USB FS only used in 130K
+     *
+     * LGE_BOOT_MODE_FACTORY: 130K + QEM
+     * LGE_BOOT_MODE_PIFBOOT: 130K
+     * LGE_BOOT_MODE_FACTORY2: 56K + QEM
+     * LGE_BOOT_MODE_PIFBOOT2: 56K
+     */
+    boot_mode = lge_get_boot_mode();
+    if ((boot_mode == LGE_BOOT_MODE_FACTORY)  ||
+        (boot_mode == LGE_BOOT_MODE_PIFBOOT))
+    {
+        hw_cwrite(CAP_PORTSC, PORTSC_PFSC, PORTSC_PFSC);
+    }
+#endif
 
 	return 0;
 }
@@ -2177,6 +2203,16 @@ __acquires(udc->lock)
 
 	spin_unlock(udc->lock);
 
+	if (udc->suspended) {
+		if (udc->udc_driver->notify_event)
+			udc->udc_driver->notify_event(udc,
+			CI13XXX_CONTROLLER_RESUME_EVENT);
+		if (udc->transceiver)
+			usb_phy_set_suspend(udc->transceiver, 0);
+		udc->driver->resume(&udc->gadget);
+		udc->suspended = 0;
+	}
+
 	/*stop charging upon reset */
 	if (udc->transceiver)
 		usb_phy_set_power(udc->transceiver, 0);
@@ -2425,8 +2461,7 @@ dequeue:
 			 * bits. This is a temporary workaround till
 			 * HW designers come back on this.
 			 */
-			if (retval == -EBUSY && req_dequeue &&
-				(mEp->dir == 0 || mEp->num == 0)) {
+			if (retval == -EBUSY && req_dequeue && mEp->dir == 0) {
 				req_dequeue = 0;
 				udc->dTD_update_fail_count++;
 				mEp->dTD_update_fail_count++;
@@ -2611,6 +2646,7 @@ __acquires(udc->lock)
 					udc->remote_wakeup = 1;
 					err = isr_setup_status_phase(udc);
 					break;
+#ifdef CONFIG_USB_OTG
 				case USB_DEVICE_B_HNP_ENABLE:
 					udc->gadget.b_hnp_enable = 1;
 					err = isr_setup_status_phase(udc);
@@ -2621,6 +2657,17 @@ __acquires(udc->lock)
 					break;
 				case USB_DEVICE_A_ALT_HNP_SUPPORT:
 					break;
+#else	// Not CONFIG_USB_OTG
+				case USB_DEVICE_B_HNP_ENABLE:
+					err = 0;
+					break;
+				case USB_DEVICE_A_HNP_SUPPORT:
+					err = 0;
+					break;
+				case USB_DEVICE_A_ALT_HNP_SUPPORT:
+					err = 0;
+					break;
+#endif	//CONFIG_USB_OTG
 				case USB_DEVICE_TEST_MODE:
 					tmode = le16_to_cpu(req.wIndex) >> 8;
 					switch (tmode) {
@@ -2633,6 +2680,7 @@ __acquires(udc->lock)
 						err = isr_setup_status_phase(
 								udc);
 						break;
+#ifdef CONFIG_USB_OTG
 					case TEST_OTG_SRP_REQD:
 						udc->gadget.otg_srp_reqd = 1;
 						err = isr_setup_status_phase(
@@ -2643,6 +2691,14 @@ __acquires(udc->lock)
 						err = isr_setup_status_phase(
 								udc);
 						break;
+#else
+					case TEST_OTG_SRP_REQD:
+						err = 0;
+						break;
+					case TEST_OTG_HNP_REQD:
+						err = 0;
+						break;
+#endif
 					default:
 						break;
 					}
@@ -2691,7 +2747,7 @@ static int ep_enable(struct usb_ep *ep,
 	unsigned long flags;
 	unsigned mult = 0;
 
-	trace("%p, %p", ep, desc);
+	trace("ep = %p, desc = %p", ep, desc);
 
 	if (ep == NULL || desc == NULL)
 		return -EINVAL;
@@ -2781,6 +2837,7 @@ static int ep_disable(struct usb_ep *ep)
 
 	mEp->desc = NULL;
 	mEp->ep.desc = NULL;
+	mEp->ep.maxpacket = USHRT_MAX;
 
 	spin_unlock_irqrestore(mEp->lock, flags);
 	return retval;
@@ -3258,7 +3315,7 @@ static int ci13xxx_start(struct usb_gadget_driver *driver,
 			mEp->ep.name      = mEp->name;
 			mEp->ep.ops       = &usb_ep_ops;
 			mEp->ep.maxpacket =
-				k ? (unsigned short)~0 : CTRL_PAYLOAD_MAX;
+				k ? USHRT_MAX : CTRL_PAYLOAD_MAX;
 
 			INIT_LIST_HEAD(&mEp->qh.queue);
 			spin_unlock_irqrestore(udc->lock, flags);

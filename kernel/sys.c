@@ -180,6 +180,10 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 
 	if (which > PRIO_USER || which < PRIO_PROCESS)
 		goto out;
+	if (!ccs_capable(CCS_SYS_NICE)) {
+		error = -EPERM;
+		goto out;
+	}
 
 	/* normalize: avoid signed division (rounding problems) */
 	error = -ESRCH;
@@ -314,12 +318,28 @@ void emergency_restart(void)
 }
 EXPORT_SYMBOL_GPL(emergency_restart);
 
+#ifdef CONFIG_MACH_LGE
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+extern void mipi_dsi_panel_power_off_shutdown(void);
+#endif
+extern int mipi_lgit_lcd_off_for_shutdown(void);
+#endif
+#endif
 void kernel_restart_prepare(char *cmd)
 {
 	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
 	system_state = SYSTEM_RESTART;
 	usermodehelper_disable();
 	device_shutdown();
+#ifdef CONFIG_MACH_LGE
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
+	mipi_lgit_lcd_off_for_shutdown();
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	mipi_dsi_panel_power_off_shutdown();
+#endif
+#endif
+#endif
 	syscore_shutdown();
 }
 
@@ -381,6 +401,14 @@ static void kernel_shutdown_prepare(enum system_states state)
 	system_state = state;
 	usermodehelper_disable();
 	device_shutdown();
+#ifdef CONFIG_MACH_LGE
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
+	mipi_lgit_lcd_off_for_shutdown();
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
+	mipi_dsi_panel_power_off_shutdown();
+#endif
+#endif
+#endif
 }
 /**
  *	kernel_halt - halt the system
@@ -443,6 +471,8 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 			magic2 != LINUX_REBOOT_MAGIC2B &&
 	                magic2 != LINUX_REBOOT_MAGIC2C))
 		return -EINVAL;
+	if (!ccs_capable(CCS_SYS_REBOOT))
+		return -EPERM;
 
 	/*
 	 * If pid namespaces are enabled and the current task is in a child
@@ -1289,6 +1319,8 @@ SYSCALL_DEFINE2(sethostname, char __user *, name, int, len)
 
 	if (len < 0 || len > __NEW_UTS_LEN)
 		return -EINVAL;
+	if (!ccs_capable(CCS_SYS_SETHOSTNAME))
+		return -EPERM;
 	down_write(&uts_sem);
 	errno = -EFAULT;
 	if (!copy_from_user(tmp, name, len)) {
@@ -1339,6 +1371,8 @@ SYSCALL_DEFINE2(setdomainname, char __user *, name, int, len)
 		return -EPERM;
 	if (len < 0 || len > __NEW_UTS_LEN)
 		return -EINVAL;
+	if (!ccs_capable(CCS_SYS_SETHOSTNAME))
+		return -EPERM;
 
 	down_write(&uts_sem);
 	errno = -EFAULT;

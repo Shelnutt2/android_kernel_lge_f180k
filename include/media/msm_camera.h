@@ -312,7 +312,8 @@ struct msm_mctl_post_proc_cmd {
 #define PP_RAW_SNAP ((0x01)<<1)
 #define PP_PREV  ((0x01)<<2)
 #define PP_THUMB ((0x01)<<3)
-#define PP_MASK		(PP_SNAP|PP_RAW_SNAP|PP_PREV|PP_THUMB)
+#define PP_RDI_PREV ((0x01)<<4)
+#define PP_MASK		(PP_SNAP|PP_RAW_SNAP|PP_PREV|PP_THUMB|PP_RDI_PREV)
 
 #define MSM_CAM_CTRL_CMD_DONE  0
 #define MSM_CAM_SENSOR_VFE_CMD 1
@@ -1219,12 +1220,13 @@ enum msm_v4l2_power_line_frequency {
 };
 
 #define CAMERA_ISO_TYPE_AUTO           0
-#define CAMEAR_ISO_TYPE_HJR            1
-#define CAMEAR_ISO_TYPE_100            2
+#define CAMERA_ISO_TYPE_HJR            1
+#define CAMERA_ISO_TYPE_100            2
 #define CAMERA_ISO_TYPE_200            3
 #define CAMERA_ISO_TYPE_400            4
-#define CAMEAR_ISO_TYPE_800            5
+#define CAMERA_ISO_TYPE_800            5
 #define CAMERA_ISO_TYPE_1600           6
+#define CAMERA_ISO_TYPE_DEFAULT     7
 
 struct sensor_pict_fps {
 	uint16_t prevfps;
@@ -1303,16 +1305,22 @@ struct sensor_calib_data {
 	uint16_t af_pos_1m;
 	uint16_t af_pos_inf;
 };
+//End :randy@qualcomm.com for calibration 2012.04.15
 
 enum msm_sensor_resolution_t {
-	MSM_SENSOR_RES_FULL,
+	MSM_SENSOR_RES_FULL, 
 	MSM_SENSOR_RES_QTR,
-	MSM_SENSOR_RES_2,
+	MSM_SENSOR_RES_2, 
 	MSM_SENSOR_RES_3,
 	MSM_SENSOR_RES_4,
 	MSM_SENSOR_RES_5,
 	MSM_SENSOR_RES_6,
+/* LGE_CHANGE_E, Define For CE1702 output mode, 2012.11.10, elin.lee*/
 	MSM_SENSOR_RES_7,
+	MSM_SENSOR_RES_8,
+	MSM_SENSOR_RES_ZSL,//SENSOR_MODE_ZSL
+	MSM_SENSOR_RES_BURST,//SENSOR_MODE_BURSTSHOT
+/* LGE_CHANGE_E, Define For CE1702 output mode, 2012.11.10, elin.lee*/	
 	MSM_SENSOR_INVALID_RES,
 };
 
@@ -1747,6 +1755,9 @@ struct msm_actuator_move_params_t {
 	int8_t sign_dir;
 	int16_t dest_step_pos;
 	int32_t num_steps;
+/* LGE_CHANGE_S, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+	int32_t af_status;
+/* LGE_CHANGE_E, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
 	struct damping_params_t *ringing_params;
 };
 
@@ -1826,6 +1837,17 @@ struct msm_calib_wb {
 	uint16_t gr_over_gb;
 };
 
+#if 1 // LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-08-14
+struct msm_calib_ver {
+	uint16_t cal_ver; // rafal47 0813
+};
+#endif
+
+struct msm_calib_wb_light_info {
+	uint8_t lightidx[10];
+	struct msm_calib_wb wb_light_info[3];
+};
+
 struct msm_calib_af {
 	uint16_t macro_dac;
 	uint16_t inf_dac;
@@ -1837,6 +1859,11 @@ struct msm_calib_lsc {
 	uint16_t b_gain[221];
 	uint16_t gr_gain[221];
 	uint16_t gb_gain[221];
+};
+
+struct msm_calib_lsc_light_info {
+	uint8_t lightidx[10];
+	struct msm_calib_lsc lsc_light_info[3];
 };
 
 struct pixel_t {
@@ -1858,8 +1885,10 @@ struct msm_calib_raw {
 
 struct msm_camera_eeprom_info_t {
 	struct msm_eeprom_support af;
-	struct msm_eeprom_support wb;
-	struct msm_eeprom_support lsc;
+	struct msm_eeprom_support wb50;
+	struct msm_eeprom_support wb30;
+	struct msm_eeprom_support lsc50;
+	struct msm_eeprom_support lsc40;
 	struct msm_eeprom_support dpc;
 	struct msm_eeprom_support raw;
 };

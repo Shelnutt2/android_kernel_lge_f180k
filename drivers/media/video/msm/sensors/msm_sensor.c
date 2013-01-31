@@ -16,52 +16,32 @@
 #include "msm.h"
 #include "msm_ispif.h"
 #include "msm_camera_i2c_mux.h"
+//Start  LGE_BSP_CAMERA : dont use for shutter lag time - jonghwan.ko@lge.com
+//#define REDUCE_SHUTTER_LAG_TIME
+//End  LGE_BSP_CAMERA : dont use for shutter lag time - jonghwan.ko@lge.com
+//LGE_UPDATE_S hojin.ryu@lge.com 20121107 Added IEF On/Off Switch functions
+#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+#define LGIT_IEF_SWITCH
 
-/*=============================================================*/
-void msm_sensor_adjust_frame_lines1(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	uint16_t cur_line = 0;
-	uint16_t exp_fl_lines = 0;
-	if (s_ctrl->sensor_exp_gain_info) {
-		msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-			s_ctrl->sensor_exp_gain_info->coarse_int_time_addr,
-			&cur_line,
-			MSM_CAMERA_I2C_WORD_DATA);
-		exp_fl_lines = cur_line +
-			s_ctrl->sensor_exp_gain_info->vert_offset;
-		if (exp_fl_lines > s_ctrl->msm_sensor_reg->
-			output_settings[s_ctrl->curr_res].frame_length_lines)
-			msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-				s_ctrl->sensor_output_reg_addr->
-				frame_length_lines,
-				exp_fl_lines,
-				MSM_CAMERA_I2C_WORD_DATA);
-		CDBG("%s cur_fl_lines %d, exp_fl_lines %d\n", __func__,
-			s_ctrl->msm_sensor_reg->
-			output_settings[s_ctrl->curr_res].frame_length_lines,
-			exp_fl_lines);
-	}
-	return;
-}
+#ifdef LGIT_IEF_SWITCH
+extern int mipi_lgit_lcd_ief_off(void);
+extern int mipi_lgit_lcd_ief_on(void);
+#endif
+#endif
+#endif
+//LGE_UPDATE_E hojin.ryu@lge.com 20121107
 
-void msm_sensor_adjust_frame_lines2(struct msm_sensor_ctrl_t *s_ctrl)
-{
-	uint16_t cur_line = 0;
-	uint16_t exp_fl_lines = 0;
-	uint8_t int_time[3];
-	uint32_t fll = (s_ctrl->msm_sensor_reg->
-			output_settings[s_ctrl->curr_res].frame_length_lines *
-			s_ctrl->fps_divider) / Q10;
-	if (s_ctrl->sensor_exp_gain_info) {
-		msm_camera_i2c_read_seq(s_ctrl->sensor_i2c_client,
-			s_ctrl->sensor_exp_gain_info->coarse_int_time_addr-1,
-			&int_time[0], 3);
-		cur_line |= int_time[0] << 12;
-		cur_line |= int_time[1] << 4;
-		cur_line |= int_time[2] >> 4;
-		exp_fl_lines = cur_line +
-			s_ctrl->sensor_exp_gain_info->vert_offset;
-		if (exp_fl_lines > fll)
+/*LGE_UPDATE_S Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
+#if defined (CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined (CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT_PANEL)
+#define LGIT_COLOR_ENGINE_SWITCH
+
+#ifdef LGIT_COLOR_ENGINE_SWITCH
+extern int mipi_lgit_lcd_color_engine_off(void);
+#endif
+#endif
+/*LGE_UPDATE_E Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
+
 			msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 				s_ctrl->sensor_output_reg_addr->
 				frame_length_lines,
@@ -101,7 +81,36 @@ static void msm_sensor_delay_frames(struct msm_sensor_ctrl_t *s_ctrl)
 		msleep(s_ctrl->min_delay);
 	return;
 }
+//Start LGE_BSP_CAMERA : dont use for shutter lag time - jonghwan.ko@lge.com
+#ifndef REDUCE_SHUTTER_LAG_TIME
+#if 0
+static void msm_sensor_delay_frames(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	long fps = 0;
+	uint32_t delay = 0;
 
+	if (s_ctrl->curr_res < MSM_SENSOR_INVALID_RES &&
+		s_ctrl->wait_num_frames > 0) {
+		fps = s_ctrl->msm_sensor_reg->
+			output_settings[s_ctrl->curr_res].vt_pixel_clk /
+			s_ctrl->curr_frame_length_lines /
+			s_ctrl->curr_line_length_pclk;
+		if (fps == 0)
+			delay = s_ctrl->min_delay;
+		else
+			delay = (1000 * s_ctrl->wait_num_frames) / fps / Q10;
+	}
+	CDBG("%s fps = %ld, delay = %d, min_delay %d\n", __func__, fps,
+		delay, s_ctrl->min_delay);
+	if (delay > s_ctrl->min_delay)
+		msleep(delay);
+	else if (s_ctrl->min_delay)
+		msleep(s_ctrl->min_delay);
+	return;
+}
+#endif
+#endif
+//End  LGE_BSP_CAMERA : dont use for shutter lag time - jonghwan.ko@lge.com
 int32_t msm_sensor_write_init_settings(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
@@ -155,6 +164,9 @@ int32_t msm_sensor_write_output_settings(struct msm_sensor_ctrl_t *s_ctrl,
 		ARRAY_SIZE(dim_settings), MSM_CAMERA_I2C_WORD_DATA);
 	return rc;
 }
+    /* LGE_CHANGE_S, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
+extern int sub_cam_id_for_keep_screen_on;
+    /* LGE_CHANGE_E, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
 
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -219,6 +231,7 @@ int32_t msm_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 	offset = s_ctrl->sensor_exp_gain_info->vert_offset;
 	if (line > (fl_lines - offset))
 		fl_lines = line + offset;
+	fl_lines += (fl_lines & 0x01);
 
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
@@ -491,6 +504,147 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 
 		case CFG_SET_EFFECT:
+			// color effect by Jungki.kim
+			if (s_ctrl->func_tbl->sensor_special_effect== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_special_effect(s_ctrl, cdata.cfg.effect);
+			break;
+
+		case CFG_SET_EXPOSURE_COMPENSATION:
+			// Adjust Exposure by Jungki.kim
+			if (s_ctrl->func_tbl->sensor_exposure_compensation== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_exposure_compensation(s_ctrl, cdata.cfg.exp_compensation);
+			break;
+
+		case CFG_SET_AF_MODE:
+			//AF Mode Settings for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_focus_mode_setting== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_focus_mode_setting(s_ctrl, cdata.cfg.afmode);
+			break;
+
+		case CFG_SET_AUTO_FOCUS:
+			// Start AF for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_start_af== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_start_af(s_ctrl);
+			break;
+
+		case CFG_SET_STOP_AF:
+			// Start AF for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_stop_af== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_stop_af(s_ctrl);
+			break;
+
+		case CFG_SET_AF_WINDOW:
+			//Set AF Window for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_af_window == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_af_window(s_ctrl, cdata.cfg.af_window);
+			break;
+
+		case CFG_SET_MANUAL_FOCUS_LENGTH:
+			//Support Manual Focus by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_manual_focus_length== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_manual_focus_length(s_ctrl, cdata.cfg.focus_length);
+			break;
+
+		case CFG_SET_WB:
+			//White Balance Settings for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_whitebalance_setting== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_whitebalance_setting(s_ctrl, cdata.cfg.wb_val);
+			break;
+
+		case CFG_SET_ZOOM:
+			//Zoom Ratio Settings for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_zoom_ratio== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_zoom_ratio(s_ctrl, cdata.cfg.zoom);
+			break;
+
+		case CFG_SET_LED_FLASH_MODE:
+			//Support LED Flash only for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_led_flash_mode== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_led_flash_mode(s_ctrl, cdata.cfg.flash_mode);
+			break;
+
+		case CFG_SET_ANTIBANDING_CE1702:
+			//Set Antibanding for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_antibanding_ce1702== NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_antibanding_ce1702(s_ctrl, cdata.cfg.antibanding);
+			break;
+
+		case CFG_SET_AE_WINDOW:
+			//Set AE Window for CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_ae_window == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_ae_window(s_ctrl, cdata.cfg.ae_window);
+			break;
+
+		case CFG_SET_AEC_AWB_LOCK_CE1702:
+			//Support AEC/AWB Lock For CE1702 by jungki.kim
+			if (s_ctrl->func_tbl->sensor_set_aec_awb_lock == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_aec_awb_lock(s_ctrl, cdata.cfg.aec_awb_lock);
+			break;
+
+		case CFG_GET_CAM_OPEN_MODE:
+			//Get Current Previewing Mode by jungki.kim@lge.com
+			if (s_ctrl->func_tbl->sensor_get_cam_open_mode == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_get_cam_open_mode(s_ctrl, cdata.cfg.cam_op_mode);
+			break;
+
+		case CFG_SET_EXIF_ROTATION:
+			//Insert Rotation Information In EXIF by jungki.kim@lge.com
+			if (s_ctrl->func_tbl->sensor_set_exif_rotation == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_exif_rotation(s_ctrl, cdata.cfg.rotation);
+			break;
+
+		case CFG_SET_EXIF_GPS:
+			//Set GPS Exif Tags For GK/GV by jungki.kim@lge.com
+			if (s_ctrl->func_tbl->sensor_set_exif_gps == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			rc = s_ctrl->func_tbl->sensor_set_exif_gps(s_ctrl, &cdata.cfg.gps);
 			break;
 
 		case CFG_SENSOR_INIT:
@@ -583,6 +737,9 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 					s_ctrl, cdata.cfg.vision_ae);
 			else
 				rc = -EFAULT;
+				break;
+			}
+			s_ctrl->func_tbl->sensor_dim_info(s_ctrl,&cdata.cfg.dimension);
 			break;
 		default:
 			rc = -EFAULT;
@@ -1484,6 +1641,9 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		return -ENOMEM;
 	}
 
+	pr_err( " %s : E sensor name is %s \n",__func__, s_ctrl->sensordata->sensor_name);
+	pr_err( " %s : lgcam_commit on 121230 \n",__func__); /* LGE_CHANGE, check merged date , 2012.12.30, jungryoul.choi@lge.com */
+
 	rc = msm_camera_request_gpio_table(data, 1);
 	if (rc < 0) {
 		pr_err("%s: request gpio failed\n", __func__);
@@ -1665,7 +1825,6 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 {
 	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl;
-	CDBG("%s %s_i2c_probe called\n", __func__, client->name);
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("%s %s i2c_check_functionality failed\n",
 			__func__, client->name);

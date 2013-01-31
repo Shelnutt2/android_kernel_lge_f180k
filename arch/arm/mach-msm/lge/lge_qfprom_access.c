@@ -65,6 +65,9 @@
 #define PRIM_HW_KEY_BLOWN 0x00000002
 #define HW_KEYS_BLOCKED   0x00000004
 
+#define HW_KEY_LSB_FEC_MASK 0xC1FF83FF
+#define HW_KEY_MSB_FEC_MASK 0x007FE0FF
+#define FUSING_COMPLETED_STATE 0x3F
 #define RANDOM_BY_TZBSP 1
 
 /* command buffer to write */
@@ -88,6 +91,7 @@ struct qfprom_blow_data {
 	u32 msb_data;
 };
 
+static u32 fusing_flag=0;
 static u32 qfprom_address = 0;
 static u32 qfprom_lsb_value = 0;
 static u32 qfprom_msb_value = 0;
@@ -100,14 +104,14 @@ int qfuse_read_single_row(u32 fuse_addr, u32 addr_type, u32 * r_buf);
 
 static struct qfprom_blow_data blow_data[] = {
 	/* addr                        LSB         MSB */
-	//{ QFPROM_SECURE_BOOT_ENABLE, 0x00000020, 0x00000000}, /* SECURE ENABLE */
-	//{ QFPROM_OEM_CONFIG,         0x00000031, 0x00000000}, /* OEM ID        */
-	//{ QFPROM_DEBUG_ENABLE,       0xC1000000, 0x0000006F}, /* JTAG DISABLE */
-	//{ QFPROM_CHECK_HW_KEY,       0x0,        0x0},
-	//{ QFPROM_READ_PERMISSION,    0x0C000000, 0x00000000}, /* READ PERMISSION */
-	//{ QFPROM_WRITE_PERMISSION,   0x54100000, 0x00000000}, /* WRITE PERMISSION */
-	{QFPROM_SPARE_REGION_24, 0x0132DD1B, 0x013302A1},	/* Test Code */
-	{QFPROM_SPARE_REGION_25, 0x013302A1, 0x0132DD1B}	/* Test Code */
+	{ QFPROM_SECURE_BOOT_ENABLE, 0x00000020, 0x00000000}, /* SECURE ENABLE */
+	{ QFPROM_OEM_CONFIG,         0x00000031, 0x00000000}, /* OEM ID        */
+	{ QFPROM_DEBUG_ENABLE,       0xC1000000, 0x0000006F}, /* JTAG DISABLE */
+	{ QFPROM_CHECK_HW_KEY,       0x0,        0x0},
+	{ QFPROM_READ_PERMISSION,    0x0C000000, 0x00000000}, /* READ PERMISSION */
+	{ QFPROM_WRITE_PERMISSION,   0x54100000, 0x00000000}  /* WRITE PERMISSION */
+	//{QFPROM_SPARE_REGION_24, 0x0132DD1B, 0x013302A1},	/* Test Code */
+	//{QFPROM_SPARE_REGION_25, 0x013302A1, 0x0132DD1B}	/* Test Code */
 };
 
 /* this api handle diag command(fusing check command) from ATD 
@@ -123,10 +127,14 @@ static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr,
 	u32 key_status = 0;
 	u32 *p_buf = NULL;
 
+	if(fusing_flag==0) {
 	key_status = qfprom_secondary_hwkey_status();
 	if ((key_status & SEC_HW_KEY_BLOWN) != SEC_HW_KEY_BLOWN) {
+			printk("%s: hw key is not blown\n",__func__);
 		goto err_mem;
 	} else {
+			msleep(10);
+			printk("%s:secondary HW key check complete!!!!!\n",__func__);
 		p_buf = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
 		if (!p_buf) {
 			printk("%s: memory alloc fail\n", __func__);
@@ -137,6 +145,7 @@ static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr,
 				continue;
 
 			memset(p_buf, 0x00, sizeof(u32) * 2);
+			msleep(10);
 			ret =
 			    qfuse_read_single_row(blow_data[i].qfprom_addr, 0,
 						  p_buf);
@@ -147,20 +156,27 @@ static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr,
 				printk("%s: qfprom read fail\n", __func__);
 				goto err;
 			} else {
-				if ((blow_data[i].lsb_data == p_buf[0])
-				    && (blow_data[i].msb_data == p_buf[1]))
-					continue;
+					if(((p_buf[0]&blow_data[i].lsb_data)==blow_data[i].lsb_data) &&
+						((p_buf[1]&blow_data[i].msb_data)==blow_data[i].msb_data)) {
+						printk("%s: 0x%x chekc complete\n",__func__,blow_data[i].qfprom_addr);
+						continue;
+					}
 				else {
 					printk
 					    ("%s: fusing value is not match\n",
 					     __func__);
 					goto err;
 				}
+					msleep(10);
 			}
 		}
 		fusing = 1;
 	}
-
+	} 
+	else {
+		if(fusing_flag==FUSING_COMPLETED_STATE)
+			fusing=1;
+	}
 err:
 	kfree(p_buf);
 err_mem:
@@ -176,43 +192,92 @@ static ssize_t qfusing_store(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
 	int ret;
-	int i;
-	u32 key_status = 0;
+	int i=0;
+	u32* p_buf=NULL;
 
 	if (!sysfs_streq(buf, "fusing")) {
 		printk("%s:argument fault\n", __func__);
-		return -EINVAL;
+		ret=-EINVAL;
+		goto err;
+	}
+	
+	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
+	if(!p_buf) {
+		printk("%s: memory alloc fail\n",__func__);
+		ret=-EINVAL;
+		goto err;;
+
 	}
 
-	for (i = 0; i < ARRAY_SIZE(blow_data); i++) {
-		if (blow_data[i].qfprom_addr == QFPROM_CHECK_HW_KEY) {
+	for(i=0;i<ARRAY_SIZE(blow_data);i++){
+		if(blow_data[i].qfprom_addr==QFPROM_CHECK_HW_KEY) {
+			/* We dont check secondary hw key status 
+			 * But qfprom_blow secondary_hwkey_region api does not create random if qfprom block was written
+			 * The api create random if was not written only
+			 * So HW key region to be written is not written by new random key
+			 * The reason to not check hw key status reg is to check 7 hw key block to be written
+			 */
 			ret = qfprom_blow_secondary_hwkey_region();
 			if (ret < 0) {
 				printk("%s: hw key region blow error\n",
 				       __func__);
-				goto err;
+					goto err_fuse;
 			}
+			fusing_flag |= (0x1<<i);
+			printk("%s: HW secondary key region is blown successfully\n",__func__);
 			continue;
 		}
-		if (blow_data[i].qfprom_addr == QFPROM_READ_PERMISSION) {
-			key_status = qfprom_secondary_hwkey_status();
-			if ((key_status & SEC_HW_KEY_BLOWN) != SEC_HW_KEY_BLOWN) {
-				printk("%s: hw key region is not blown\n",
-				       __func__);
+
+		msleep(10);
+		ret = qfuse_read_single_row(blow_data[i].qfprom_addr,0,p_buf);
+		if(ret!=0) {
+			printk("%s: qfprom addr %x read fail, ret=%d\n",__func__,blow_data[i].qfprom_addr,ret);
+			goto err_fuse;
+		}
+		printk("%s:read addr 0x%x, lsb 0x%x, msb 0x%x\n",__func__,blow_data[i].qfprom_addr,p_buf[0],p_buf[1]);
+		/* Don't rewrite if value to read is same value to write */
+		if(((p_buf[0]&blow_data[i].lsb_data)==blow_data[i].lsb_data) &&
+			((p_buf[1]&blow_data[i].msb_data)==blow_data[i].msb_data)) {
+			printk("%s: 0x%x was blown already\n",__func__,blow_data[i].qfprom_addr);
+		}
+		else {
+			msleep(10);
+			ret = qfuse_write_single_row(blow_data[i].qfprom_addr,blow_data[i].lsb_data,blow_data[i].msb_data);
+			if(ret!=0){
+				printk("%s: qfuse addr %x blow write error!!!\n",__func__,blow_data[i].qfprom_addr);
 				ret = -EINVAL;
-				goto err;
+				goto err_fuse;
+			} else {
+				/* double check routine*/
+				msleep(10);
+				printk("%s: qfprom 0x%x addr write double check routine\n",__func__,blow_data[i].qfprom_addr);
+				ret = qfuse_read_single_row(blow_data[i].qfprom_addr,0,p_buf);
+				if(ret !=0 ){
+					printk("%s: read fail when double check, ret=%d\n",__func__,ret);
+					ret = -EINVAL;
+					goto err_fuse;
+				}
+				if(((p_buf[0]&blow_data[i].lsb_data)==blow_data[i].lsb_data) &&
+					((p_buf[1]&blow_data[i].msb_data)==blow_data[i].msb_data)) {
+					printk("%s:write double check successfully",__func__);
+				} else {
+					printk("%s:qfprom write successful but error when double check\n",__func__);
+					ret = -EINVAL;
+					goto err_fuse;
+				}
+			
 			}
+
 		}
-		ret = qfuse_write_single_row(blow_data[i].qfprom_addr,
-					   blow_data[i].lsb_data,
-					   blow_data[i].msb_data);
-		if (ret != 0) {
-			printk("%s: qfuse blow error!!!\n", __func__);
-			ret = -EINVAL;
-			goto err;
-		}
+		fusing_flag |= (0x1<<i);
 	}
+	printk("%s: fusing flag = 0x%x\n",__func__,fusing_flag);
+	printk("%s: fusing complete!!!!!!!!!!!!!!!!!!!!\n",__func__);
+	kfree(p_buf);
 	return count;
+
+err_fuse:
+	kfree(p_buf);
 err:
 	return ret;
 }
@@ -475,25 +540,111 @@ int qfprom_blow_secondary_hwkey_region(void)
 	int ret;
 	u32 addr, lsb, msb;
 	int i;
+	u32* p_buf=NULL;
+
+	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
+	if( !p_buf ){
+		printk("%s : buffer memory alloc fail\n",__func__);
+		return -ENOMEM;
+	}
+	
+	/* we check read permission
+	 * if read permission region is blown, we can see all hw secondary key is blown
+	 * because permission fuse is follow to secondary hw key
+	 */
+	ret = qfuse_read_single_row(QFPROM_READ_PERMISSION,0,p_buf);
+	if(ret!=0){
+		printk("%s: qfuse addr %x read fail, ret=%d\n",__func__,QFPROM_READ_PERMISSION,ret);
+		ret = -EINVAL;
+		goto err;
+	}
+	if((p_buf[0]&0x0C000000)==0x0C000000) {
+		printk("%s: All hw key was written already\n",__func__);
+		ret = 0;
+		goto err;
+	}
 
 	addr = QFPROM_SECONDARY_HW_KEY;
-	for (i = 0; i < 7; i++) {
-#if RANDOM_BY_TZBSP
-		lsb = qfprom_create_random();
-		msb = qfprom_create_random();
-		if (lsb == 0 || msb == 0) {
+	for(i=0;i<7;i++){
+		/* we can read hw secondary key region because before read permission is set */
+		/*
+		ret = qfuse_read_single_row(addr, 0, p_buf);
+		if(ret!=0){
+			printk("%s: qfuse addr %x read fail, ret=%d\n",__func__,addr,ret);
 			ret = -EINVAL;
-			return ret;
+			goto err;
 		}
-#else
-		get_random_bytes(&lsb, 4);
-		get_random_bytes(&msb, 4);
-#endif
-		ret = qfuse_write_single_row(addr, lsb, msb);
-		if (ret != 0)
-			return -EINVAL;
-		addr = addr + 8;
+		printk("%s:Currently, secondary key addr=0x%x, lsb=0x%x, msb=0x%x\n",__func__,addr,p_buf[0],p_buf[1]);
+		*/
+		msleep(10);
+
+		/* if you have not written ever hw key before, value to read will be zero
+		 * so create random using tzbsp 
+		 * LSB region */
+		if(!p_buf[0]){
+			lsb = qfprom_create_random();
+			if(!lsb) {
+				ret = -EINVAL;
+				goto err;
+			}
+			msleep(5);
+		} else {
+			/* dont create random value and rewrite value to read */
+			printk("hw lsb key was blow already in 0x%x addr\n",addr);
+			lsb = p_buf[0];
+		}
+		/* if you have not written ever hw key before, value to read will be zero
+		 * so create random using tzbsp 
+		 * MSB region */
+		if(!p_buf[1]) {
+			msb = qfprom_create_random();
+			if(!msb) {
+				ret=-EINVAL;
+				goto err;
+			}
+			msleep(5);
+		} else {
+
+			printk("hw msb key was blow already in 0x%x addr\n",addr+4);
+			msb = p_buf[1];
+		}
+		/* must mask FEC bit */
+		lsb = lsb&HW_KEY_LSB_FEC_MASK;
+		msb = msb&HW_KEY_MSB_FEC_MASK;
+		printk("We start to writing secondary key !!!\n");
+		printk("addr=0x%x, lsb=0x%x, msb=0x%x\n",addr,lsb,msb);
+		msleep(10);
+		ret = qfuse_write_single_row(addr,lsb,msb);
+		if(ret!=0) {
+			printk("%s:qfus addr 0x%x write error, ret=%d\n",__func__,addr,ret);
+			ret=-EINVAL;
+			goto err;
+		}
+		else {
+			/* write double check routine */
+			printk("hw secondary key write successful\n");
+			msleep(10);
+			/*
+			ret = qfuse_read_single_row(addr,0,p_buf);
+			if(ret!=0){
+				printk("%s:read fail when double check routine, ret=%d\n",__func__,ret);
+				goto err;
+			}  
+			if((p_buf[0]==lsb)&&(p_buf[1]==msb))
+				printk("%s: hw key write double check successful!!!!!!!\n",__func__);
+			else {
+				printk("%s: hw key double check error, read_lsb=0x%x,read_msb=0x%x\n",__func__,p_buf[0],p_buf[1]);
+				ret=-EINVAL;
+				goto err;
+			}
+			*/
+		}
+		addr=addr+8;
+		msleep(10);
 	}
+
+err:
+	kfree(p_buf);
 	return ret;
 }
 
@@ -545,7 +696,7 @@ int qfuse_write_single_row(u32 fuse_addr, u32 fuse_lsb, u32 fuse_msb)
 	}
 	printk("change succeeded to %x ,  status = %x\n", TZBSP_MILESTONE_FALSE,
 	       tzbsp_boot_milestone_status);
-
+	msleep(10);
 	ret = scm_call(QFPROM_SVC_ID, QFPROM_WRITE_CMD, &request,
 			sizeof(request), &scm_ret, sizeof(scm_ret));
 	if (ret < 0) {
@@ -559,6 +710,7 @@ error_stat:
 	kfree(p_buf);
 error_buf:
 	tzbsp_boot_milestone_status = TZBSP_MILESTONE_TRUE;
+	msleep(10);
 	if (TZBSP_MILESTONE_TRUE !=
 	    scm_call(TZBSP_SVC_OEM, TZBSP_ADDITIONAL_CMD,
 		     &tzbsp_boot_milestone_status,
@@ -610,6 +762,7 @@ int qfuse_read_single_row(u32 fuse_addr, u32 addr_type, u32 * r_buf)
 	printk("change succeeded to %x ,  status = %x\n", TZBSP_MILESTONE_FALSE,
 	       tzbsp_boot_milestone_status);
 
+	msleep(10);
 	ret = scm_call(QFPROM_SVC_ID, QFPROM_READ_CMD, &request,
 			sizeof(request), &scm_ret, sizeof(scm_ret));
 
@@ -625,6 +778,7 @@ error_scm:
 
 error_stat:
 	tzbsp_boot_milestone_status = TZBSP_MILESTONE_TRUE;
+	msleep(10);
 	if (TZBSP_MILESTONE_TRUE !=
 	    scm_call(TZBSP_SVC_OEM, TZBSP_ADDITIONAL_CMD,
 		     &tzbsp_boot_milestone_status,

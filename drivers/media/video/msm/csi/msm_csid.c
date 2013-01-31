@@ -25,7 +25,10 @@
 #define CSID_VERSION_V2                      0x02000011
 #define CSID_VERSION_V3                      0x30000000
 
-#define DBG_CSID 0
+#define DBG_CSID 1
+
+#define TRUE   1
+#define FALSE  0
 
 #define TRUE   1
 #define FALSE  0
@@ -130,7 +133,7 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 		return IRQ_HANDLED;
 	}
 	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
-	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+	pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
 			complete(&csid_dev->reset_complete);

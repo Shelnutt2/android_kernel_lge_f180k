@@ -42,6 +42,9 @@
 #define AMP_GET_DATA	_IOW(AMP_IOCTL_MAGIC, 1, struct amp_cal *)
 
 static uint32_t msm_snd_debug = 1;
+
+static uint32_t amp_enable_status = 0;
+
 module_param_named(debug_mask, msm_snd_debug, uint, 0664);
 
 #if defined (AMP_DEBUG_PRINT)
@@ -140,6 +143,8 @@ inline void set_amp_gain(int amp_state)
 		/*need 10 msec for chip ready*/
 		msleep(10);
 		fail = tpa2028d_poweron();
+
+		amp_enable_status = 1;
 		break;
 	case SPK_OFF:
 		if (amp_data->pdata->enable)
@@ -149,6 +154,8 @@ inline void set_amp_gain(int amp_state)
 			fail = amp_data->pdata->enable(0);
 		if (amp_data->pdata->power)
 			fail = amp_data->pdata->power(0);
+
+		amp_enable_status = 0;
 		break;
 	default:
 		D("Amp_state [%d] does not support \n", amp_state);
@@ -214,11 +221,21 @@ tpa2028d_fixed_gain_store(struct device *dev, struct device_attribute *attr, con
 {
 	struct audio_amp_platform_data *pdata = amp_data->pdata;
 	int val;
+	int fail = 0;
 
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
 	pdata->agc_fixed_gain = val;
+
+	D("gain control [amp_enable_status =%d]",amp_enable_status);
+
+	if(amp_enable_status)
+	{
+		fail = WriteI2C(AGC_FIXED_GAIN_CONTROL, pdata->agc_fixed_gain);
+		D("gain control %d",fail);
+	}
+	
 	return count;
 }
 

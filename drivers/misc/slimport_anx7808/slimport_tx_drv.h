@@ -32,6 +32,7 @@ extern unchar bedid_extblock[128];
 extern unchar bedid_firstblock[128];
 
 extern bool anx7808_ver_ba;
+extern unchar slimport_link_bw;
 
 enum SP_TX_System_State {
 	STATE_INIT = 1,

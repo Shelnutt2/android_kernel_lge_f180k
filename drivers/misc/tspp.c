@@ -2215,6 +2215,82 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count, u32 size,
 			MSEC_TO_JIFFIES(
 				channel->expiration_period_ms));
 
+	/* set up interrupt frequency */
+	if (int_freq > channel->max_buffers)
+		int_freq = channel->max_buffers;
+	channel->int_freq = int_freq;
+
+	switch (channel->mode) {
+	case TSPP_MODE_DISABLED:
+	case TSPP_MODE_PES:
+		/* give the user what he asks for */
+		channel->buffer_size = size;
+		break;
+
+	case TSPP_MODE_RAW:
+		/* must be a multiple of 192 */
+		if (size < (TSPP_PACKET_LENGTH+4))
+			channel->buffer_size = (TSPP_PACKET_LENGTH+4);
+		else
+			channel->buffer_size = (size /
+				(TSPP_PACKET_LENGTH+4)) *
+				(TSPP_PACKET_LENGTH+4);
+		break;
+
+	case TSPP_MODE_RAW_NO_SUFFIX:
+		/* must be a multiple of 188 */
+		channel->buffer_size = (size / TSPP_PACKET_LENGTH) *
+			TSPP_PACKET_LENGTH;
+		break;
+	}
+
+	for (; channel->buffer_count < channel->max_buffers;
+		channel->buffer_count++) {
+
+		/* allocate the descriptor */
+		struct tspp_mem_buffer *desc = (struct tspp_mem_buffer *)
+			kmalloc(sizeof(struct tspp_mem_buffer), GFP_KERNEL);
+		if (!desc) {
+			pr_warn("tspp: Can't allocate desc %i",
+			channel->buffer_count);
+			break;
+		}
+
+		desc->desc.id = channel->buffer_count;
+		/* allocate the buffer */
+		if (tspp_alloc_buffer(channel_id, &desc->desc,
+			channel->buffer_size, alloc, user) != 0) {
+			kfree(desc);
+			pr_warn("tspp: Can't allocate buffer %i",
+				channel->buffer_count);
+			break;
+		}
+
+		/* add the descriptor to the list */
+		desc->filled = 0;
+		desc->read_index = 0;
+		if (!channel->data) {
+			channel->data = desc;
+			desc->next = channel->data;
+		} else {
+			last->next = desc;
+		}
+		last = desc;
+		desc->next = channel->data;
+
+		/* prepare the sps descriptor */
+		desc->sps.phys_base = desc->desc.phys_base;
+		desc->sps.base = desc->desc.virt_base;
+		desc->sps.size = desc->desc.size;
+
+		/* start the transfer */
+		if (tspp_queue_buffer(channel, desc))
+			pr_err("tspp: can't queue buffer %i", desc->desc.id);
+	}
+
+	channel->waiting = channel->data;
+	channel->read = channel->data;
+	channel->locked = channel->data;
 	return 0;
 }
 EXPORT_SYMBOL(tspp_allocate_buffers);
@@ -2565,7 +2641,6 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	struct resource *mem_tsif1;
 	struct resource *mem_tspp;
 	struct resource *mem_bam;
-	struct tspp_channel *channel;
 
 	/* must have platform data */
 	data = pdev->dev.platform_data;

@@ -27,6 +27,7 @@
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
 #include <linux/iopoll.h>
+#include <linux/platform_device.h>
 
 #include <asm/system.h>
 #include <asm/mach-types.h>
@@ -973,29 +974,30 @@ void mipi_dsi_controller_cfg(int enable)
 
 	uint32 dsi_ctrl;
 	uint32 status;
-	u32 sleep_us = 1000;
-	u32 timeout_us = 16000;
+	int cnt;
 
-	/* Check for CMD_MODE_DMA_BUSY */
-	if (readl_poll_timeout((MIPI_DSI_BASE + 0x0004),
-			   status,
-			   ((status & 0x02) == 0),
-			       sleep_us, timeout_us))
+	cnt = 16;
+	while (cnt--) {
+		status = MIPI_INP(MIPI_DSI_BASE + 0x0004);
+		status &= 0x02;		/* CMD_MODE_DMA_BUSY */
+		if (status == 0)
+			break;
+		usleep(1000);
+	}
+	if (cnt == 0)
 		pr_info("%s: DSI status=%x failed\n", __func__, status);
 
-	/* Check for x_HS_FIFO_EMPTY */
-	if (readl_poll_timeout((MIPI_DSI_BASE + 0x0008),
-			   status,
-			   ((status & 0x11111000) == 0x11111000),
-			       sleep_us, timeout_us))
+	cnt = 16;
+	while (cnt--) {
+		status = MIPI_INP(MIPI_DSI_BASE + 0x0008);
+		status &= 0x11111000;	/* x_HS_FIFO_EMPTY */
+		if (status == 0x11111000)	/* all empty */
+			break;
+		usleep(1000);
+	}
+
+	if (cnt == 0)
 		pr_info("%s: FIFO status=%x failed\n", __func__, status);
-
-	/* Check for VIDEO_MODE_ENGINE_BUSY */
-	if (readl_poll_timeout((MIPI_DSI_BASE + 0x0004),
-			   status,
-			   ((status & 0x08) == 0),
-			       sleep_us, timeout_us))
-		pr_info("%s: DSI status=%x failed\n", __func__, status);
 
 	dsi_ctrl = MIPI_INP(MIPI_DSI_BASE + 0x0000);
 	if (enable)
@@ -1175,9 +1177,22 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 		mipi_dsi_enable_irq(DSI_CMD_TERM);
 		mipi_dsi_buf_init(tp);
 		mipi_dsi_cmd_dma_add(tp, cm);
+#if defined(CONFIG_MACH_LGE)
+		if (mipi_dsi_cmd_dma_tx(tp) == 0) 
+		{
+			printk(KERN_INFO "%s : mipi_dsi_cmd_dma_tx timeout!!! cm num = %d, cm payload = %s/n", __func__, i, cm->payload);
+			return -1;
+		}
+#else
 		mipi_dsi_cmd_dma_tx(tp);
+#endif
+
 		if (cm->wait)
+#ifdef CONFIG_MACH_LGE
+			mdelay(cm->wait);
+#else
 			msleep(cm->wait);
+#endif
 		cm++;
 	}
 
@@ -1430,8 +1445,12 @@ int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
 
 int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
+
 	unsigned long flags;
 
+#ifdef CONFIG_MACH_LGE
+	long timeout;
+#endif
 #ifdef DSI_HOST_DEBUG
 	int i;
 	char *bp;
@@ -1467,10 +1486,18 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	wmb();
 	spin_unlock_irqrestore(&dsi_mdp_lock, flags);
 
-	if (!wait_for_completion_timeout(&dsi_dma_comp,
-					msecs_to_jiffies(200))) {
-		pr_err("%s: dma timeout error\n", __func__);
+#ifdef CONFIG_MACH_LGE
+	timeout = wait_for_completion_timeout(&dsi_dma_comp, msecs_to_jiffies(VSYNC_PERIOD*20)); // 320ms
+	if (timeout == 0)
+	{
+		pr_err("%s: wait_for_completion_timeout .. \n", __func__);
+		dma_unmap_single(&dsi_dev, tp->dmap, tp->len, DMA_TO_DEVICE);
+		tp->dmap = 0;
+		return timeout;
 	}
+#else
+	wait_for_completion(&dsi_dma_comp);
+#endif
 
 	dma_unmap_single(&dsi_dev, tp->dmap, tp->len, DMA_TO_DEVICE);
 	tp->dmap = 0;

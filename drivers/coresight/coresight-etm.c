@@ -1957,6 +1957,16 @@ static void __devinit etm_copy_arch_data(struct etm_drvdata *drvdata)
 	drvdata->data_trace_support = etmdrvdata[0]->data_trace_support;
 }
 
+static void __devinit etm_copy_arch_data(struct etm_drvdata *drvdata)
+{
+	drvdata->arch = etm0drvdata->arch;
+	drvdata->nr_addr_cmp = etm0drvdata->nr_addr_cmp;
+	drvdata->nr_cntr = etm0drvdata->nr_cntr;
+	drvdata->nr_ext_inp = etm0drvdata->nr_ext_inp;
+	drvdata->nr_ext_out = etm0drvdata->nr_ext_out;
+	drvdata->nr_ctxid_cmp = etm0drvdata->nr_ctxid_cmp;
+}
+
 static void __devinit etm_init_default_data(struct etm_drvdata *drvdata)
 {
 	int i;
@@ -2037,6 +2047,12 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	void *baddr;
 	struct msm_client_dump dump;
 	struct coresight_desc *desc;
+
+	/* Fail probe for Krait pass3 until supported */
+	if (cpu_is_krait_v3()) {
+		dev_info(dev, "ETM: failing probe for Krait pass3\n");
+		return -EINVAL;
+	}
 
 	if (pdev->dev.of_node) {
 		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);

@@ -39,6 +39,14 @@
 #include "acpuclock-krait.h"
 #include "avs.h"
 
+#ifdef CONFIG_LGE_PM_LOW_BATT_CHG
+#include <mach/board_lge.h>
+#endif
+
+#if defined(CONFIG_MACH_APQ8064_GK_KR)	|| defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM)
+static int PIF_CHECK;
+#endif 
+
 /* MUX source selects. */
 #define PRI_SRC_SEL_SEC_SRC	0
 #define PRI_SRC_SEL_HFPLL	1
@@ -490,6 +498,16 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	bool skip_regulators;
 	int rc = 0;
 
+#if defined(CONFIG_MACH_APQ8064_GK_KR)	|| defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM)
+	static int count =0;
+	if(count < 400)count++;	
+	
+	if(PIF_CHECK && rate >= 702000 && count < 400)rate = 702000;
+	else if(rate >= 1134000 && count < 400) rate = 1134000;	
+
+	//printk("PCH_TEST CPU=%d Count=%d, rate=%d\n", cpu, count, (unsigned int)rate);
+#endif
+
 	if (cpu > num_possible_cpus())
 		return -EINVAL;
 
@@ -607,7 +625,7 @@ static struct acpuclk_data acpuclk_krait_data = {
 };
 
 /* Initialize a HFPLL at a given rate and enable it. */
-static void __cpuinit hfpll_init(struct scalable *sc,
+static void __init hfpll_init(struct scalable *sc,
 			      const struct core_speed *tgt_s)
 {
 	dev_dbg(drv.dev, "Initializing HFPLL%d\n", sc - drv.scalable);
@@ -873,16 +891,22 @@ static int __cpuinit per_cpu_init(int cpu)
 	}
 
 	acpu_level = find_cur_acpu_level(cpu);
-	if (!acpu_level) {
+#ifdef CONFIG_LGE_PM_LOW_BATT_CHG
+	/* chargerlogo wants min cpu freq */
+	if(!acpu_level || lge_get_charger_logo_state())
+#else
+	if (!acpu_level)
+#endif
+	{
 		acpu_level = find_min_acpu_level();
 		if (!acpu_level) {
 			ret = -ENODEV;
 			goto err_table;
 		}
-		dev_dbg(drv.dev, "CPU%d is running at an unknown rate. Defaulting to %lu KHz.\n",
+		dev_info(drv.dev, "CPU%d is running at an unknown rate. Defaulting to %lu KHz.\n",
 			cpu, acpu_level->speed.khz);
 	} else {
-		dev_dbg(drv.dev, "CPU%d is running at %lu KHz\n", cpu,
+		dev_info(drv.dev, "CPU%d is running at %lu KHz\n", cpu,
 			acpu_level->speed.khz);
 	}
 
@@ -1145,6 +1169,7 @@ static void __init hw_init(void)
 	rc = rpm_regulator_init(l2, VREG_HFPLL_A,
 				l2->vreg[VREG_HFPLL_A].max_vdd, false);
 	BUG_ON(rc);
+
 	rc = rpm_regulator_init(l2, VREG_HFPLL_B,
 				l2->vreg[VREG_HFPLL_B].max_vdd, false);
 	BUG_ON(rc);
@@ -1165,6 +1190,7 @@ static void __init hw_init(void)
 	for_each_online_cpu(cpu) {
 		rc = per_cpu_init(cpu);
 		BUG_ON(rc);
+
 	}
 
 	bus_init(l2_level);
@@ -1173,6 +1199,11 @@ static void __init hw_init(void)
 int __init acpuclk_krait_init(struct device *dev,
 			      const struct acpuclk_krait_params *params)
 {
+#if defined(CONFIG_MACH_APQ8064_GK_KR)	|| defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM)
+	if (lge_get_factory_boot()) PIF_CHECK=1;
+  else PIF_CHECK=0;
+#endif
+
 	drv_data_init(dev, params);
 	hw_init();
 
