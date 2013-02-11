@@ -109,7 +109,6 @@ static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{770,	213},
 	{780,	208},
 	{790,	203}
-#endif
 };
 
 static const struct pm8xxx_adc_map_pt adcmap_apq_therm[] = {

@@ -65,7 +65,6 @@
 #define MCI_CSPM_CCSENABLE	(1 << 14)
 #define MCI_CSPM_CCSDISABLE	(1 << 15)
 #define MCI_CSPM_AUTO_CMD19	(1 << 16)
-#define MCI_CSPM_AUTO_CMD21	(1 << 21)
 
 
 #define MMCIRESPCMD		0x010
@@ -401,8 +400,6 @@ struct msmsdcc_host {
 	bool io_pad_pwr_switch;
 	bool tuning_in_progress;
 	bool tuning_needed;
-	bool en_auto_cmd19;
-	bool en_auto_cmd21;
 	bool sdio_gpio_lpm;
 	bool irq_wake_enabled;
 	struct pm_qos_request pm_qos_req_dma;
@@ -419,15 +416,9 @@ struct msmsdcc_host {
 	struct device_attribute	max_bus_bw;
 	struct device_attribute	polling;
 	struct device_attribute idle_timeout;
-	struct device_attribute auto_cmd19_attr;
-	struct device_attribute auto_cmd21_attr;
 };
 
-#define MSMSDCC_VERSION_STEP_MASK	0x0000FFFF
-#define MSMSDCC_VERSION_MINOR_MASK	0x0FFF0000
-#define MSMSDCC_VERSION_MINOR_SHIFT	16
-#define MSMSDCC_VERSION_MAJOR_MASK	0xF0000000
-#define MSMSDCC_VERSION_MAJOR_SHIFT	28
+#define MSMSDCC_VERSION_MASK	0xFFFF
 #define MSMSDCC_DMA_SUP	(1 << 0)
 #define MSMSDCC_SPS_BAM_SUP	(1 << 1)
 #define MSMSDCC_SOFT_RESET	(1 << 2)
@@ -453,8 +444,6 @@ struct msmsdcc_host {
 static inline void set_default_hw_caps(struct msmsdcc_host *host)
 {
 	u32 version;
-	u16 step, minor;
-
 	/*
 	 * Lookup the Controller Version, to identify the supported features
 	 * Version number read as 0 would indicate SDCC3 or earlier versions.
@@ -465,17 +454,14 @@ static inline void set_default_hw_caps(struct msmsdcc_host *host)
 	if (!version)
 		return;
 
-	step = version & MSMSDCC_VERSION_STEP_MASK;
-	minor = (version & MSMSDCC_VERSION_MINOR_MASK) >>
-			MSMSDCC_VERSION_MINOR_SHIFT;
-
+	version &= MSMSDCC_VERSION_MASK;
 	if (version) /* SDCC v4 and greater */
 		host->hw_caps |= MSMSDCC_AUTO_PROG_DONE |
 			MSMSDCC_SOFT_RESET | MSMSDCC_REG_WR_ACTIVE
 			| MSMSDCC_WAIT_FOR_TX_RX | MSMSDCC_IO_PAD_PWR_SWITCH;
 
-	if (version >= 0x2b) /* SDCC v4 2.1.0 and greater */
-		host->hw_caps |= MSMSDCC_SW_RST | MSMSDCC_AUTO_CMD21;
+	if (version >= 0x2D) /* SDCC v4 2.1.0 and greater */
+		host->hw_caps |= MSMSDCC_SW_RST | MSMSDCC_SW_RST_CFG;
 }
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);

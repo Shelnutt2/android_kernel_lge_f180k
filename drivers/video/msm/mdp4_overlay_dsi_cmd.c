@@ -1200,15 +1200,6 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 		return;
 	}
 
-	if (clk_set_on) {
-		pr_debug("%s: SET_CLK_ON\n", __func__);
-		mipi_dsi_clk_cfg(1);
-		mdp_clk_ctrl(1);
-		vsync_irq_enable(INTR_PRIMARY_RDPTR, MDP_PRIM_RDPTR_TERM);
-	}
-
-	mutex_unlock(&vctrl->update_lock);
-
 	if (pipe->mixer_stage == MDP4_MIXER_STAGE_BASE) {
 		mdp4_mipi_vsync_enable(mfd, pipe, 0);
 		mdp4_overlay_setup_pipe_addr(mfd, pipe);

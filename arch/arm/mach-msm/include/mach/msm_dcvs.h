@@ -18,6 +18,12 @@
 #define CORE_NAME_MAX (32)
 #define CORES_MAX (10)
 
+#define CPU_OFFSET	1  /* used to notify TZ the core number */
+#define GPU_OFFSET (CORES_MAX * 2/3)  /* there will be more cpus than gpus,
+				     * let the GPU be assigned fewer core
+				     * elements and start later
+				     */
+
 enum msm_core_idle_state {
 	MSM_DCVS_IDLE_ENTER,
 	MSM_DCVS_IDLE_EXIT,
@@ -30,10 +36,45 @@ enum msm_core_control_event {
 	MSM_DCVS_DISABLE_HIGH_LATENCY_MODES,
 };
 
+/**
+ * struct msm_dcvs_idle
+ *
+ * API for idle code to register and send idle enter/exit
+ * notifications to msm_dcvs driver.
+ */
+struct msm_dcvs_idle {
+	const char *core_name;
+	/* Enable/Disable idle state/notifications */
+	int (*enable)(struct msm_dcvs_idle *self,
+			enum msm_core_control_event event);
+};
+
 struct msm_dcvs_sync_rule {
 	unsigned long cpu_khz;
 	unsigned long gpu_floor_khz;
 };
+
+/**
+ * msm_dcvs_idle_source_register
+ * @drv: Pointer to the source driver
+ * @return: Handle to be used for sending idle state notifications.
+ *
+ * Register the idle driver with the msm_dcvs driver to send idle
+ * state notifications for the core.
+ */
+extern int msm_dcvs_idle_source_register(struct msm_dcvs_idle *drv);
+
+/**
+ * msm_dcvs_idle_source_unregister
+ * @drv: Pointer to the source driver
+ * @return:
+ *	0 on success
+ *	-EINVAL
+ *
+ * Description: Unregister the idle driver with the msm_dcvs driver
+ */
+extern int msm_dcvs_idle_source_unregister(struct msm_dcvs_idle *drv);
+
 
 struct msm_dcvs_platform_data {
 	struct msm_dcvs_sync_rule *sync_rules;
@@ -84,9 +125,14 @@ int msm_dcvs_idle(int handle, enum msm_core_idle_state state,
  * before the sink driver can be registered.
  */
 struct msm_dcvs_core_info {
-	struct msm_dcvs_freq_entry *freq_tbl;
-	struct msm_dcvs_core_param core_param;
-	struct msm_dcvs_algo_param algo_param;
+	int					num_cores;
+	int					*sensors;
+	int					thermal_poll_ms;
+	struct msm_dcvs_freq_entry		*freq_tbl;
+	struct msm_dcvs_core_param		core_param;
+	struct msm_dcvs_algo_param		algo_param;
+	struct msm_dcvs_energy_curve_coeffs	energy_coeffs;
+	struct msm_dcvs_power_params		power_param;
 };
 
 /**
@@ -102,16 +148,6 @@ struct msm_dcvs_core_info {
  * Register the core with msm_dcvs driver. Done once at init before calling
  * msm_dcvs_freq_sink_register
  * Cores that need to run synchronously must share the same group id.
- * If a core doesnt care to be in any group, the group_id should be 0.
- */
-extern int msm_dcvs_register_core(const char *core_name, uint32_t group_id,
-		struct msm_dcvs_core_info *info);
-
-/**
- * struct msm_dcvs_freq
- *
- * API for clock driver code to register and receive frequency change
- * request for the core from the msm_dcvs driver.
  */
 extern int msm_dcvs_register_core(
 	enum msm_dcvs_core_type type,
@@ -123,6 +159,20 @@ extern int msm_dcvs_register_core(
 				enum msm_core_control_event event),
 	int (*set_floor_frequency)(int type_core_num, unsigned int freq),
 	int sensor);
+
+/**
+ * struct msm_dcvs_freq
+ *
+ * API for clock driver code to register and receive frequency change
+ * request for the core from the msm_dcvs driver.
+ */
+struct msm_dcvs_freq {
+	const char *core_name;
+	/* Callback from msm_dcvs to set the core frequency */
+	int (*set_frequency)(struct msm_dcvs_freq *self,
+			unsigned int freq);
+	unsigned int (*get_frequency)(struct msm_dcvs_freq *self);
+};
 
 /**
  * msm_dcvs_freq_sink_register
@@ -145,6 +195,28 @@ extern int msm_dcvs_freq_sink_register(struct msm_dcvs_freq *drv);
  * for the core to stop sending idle pulses.
  */
 extern int msm_dcvs_freq_sink_unregister(struct msm_dcvs_freq *drv);
+
+/**
+ * msm_dcvs_freq_sink_start
+ * @drv: The sink driver
+ * @return: Handle unique to the core.
+ *
+ * Register the clock driver code with the msm_dvs driver to get notified about
+ * frequency change requests.
+ */
+extern int msm_dcvs_freq_sink_start(int dcvs_core_id);
+
+/**
+ * msm_dcvs_freq_sink_stop
+ * @drv: The sink driver
+ * @return:
+ *	0 on success,
+ *	-EINVAL
+ *
+ * Unregister the sink driver for the core. This will cause the source driver
+ * for the core to stop sending idle pulses.
+ */
+extern int msm_dcvs_freq_sink_stop(int dcvs_core_id);
 
 /**
  * msm_dcvs_update_limits

@@ -19,6 +19,7 @@
 #define PKT_TYPE			8
 #define DEINIT_TYPE			16
 #define USER_SPACE_DATA_TYPE		32
+#define USER_SPACE_LOG_TYPE		32
 #define DCI_DATA_TYPE			64
 #define USB_MODE			1
 #define MEMORY_DEVICE_MODE		2
@@ -26,6 +27,11 @@
 #define UART_MODE			4
 #define SOCKET_MODE			5
 #define CALLBACK_MODE			6
+
+#ifdef CONFIG_LGE_DM_APP
+#define DM_APP_MODE			10
+#endif
+
 /* different values that go in for diag_data_type */
 #define DATA_TYPE_EVENT         	0
 #define DATA_TYPE_F3            	1

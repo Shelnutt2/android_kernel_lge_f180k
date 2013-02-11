@@ -977,10 +977,7 @@ static int msm_open(struct file *f)
 			goto mctl_open_failed;
 		}
 		pmctl->pcam_ptr = pcam;
-    
-/* LGE_CHANGE_S, To block kernel crash on GK/GV camera, 2012.12.16, elin.lee@lge.com */    
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
-#else
+
 		msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 			pcam->pvdev);
 		mutex_init(&pcam->event_lock);

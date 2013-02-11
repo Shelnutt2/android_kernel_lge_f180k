@@ -366,8 +366,8 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 #ifdef DIAG_DEBUG
 					pr_debug("diag: ENQUEUE buf ptr"
 						   " and length is %x , %d\n",
-						   (unsigned int)(driver->buf_tbl[i].buf),
-						   driver->buf_tbl[i].length);
+						   (unsigned int)(driver->buf_
+				tbl[i].buf), driver->buf_tbl[i].length);
 #endif
 					break;
 				}
@@ -515,7 +515,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 #ifdef CONFIG_LGE_DM_APP
 	if (driver->logging_mode == DM_APP_MODE) {
 		/* only diag cmd #250 for supporting testmode tool */
-		if (proc_num == APPS_DATA) {
+		if (data_type == APPS_DATA) {
 			driver->write_ptr_svc = (struct diag_request *)
 			(diagmem_alloc(driver, sizeof(struct diag_request),
 				 POOL_TYPE_WRITE_STRUCT));
@@ -535,7 +535,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 
 		}
 #ifdef CONFIG_DIAG_BRIDGE_CODE
-		else if (proc_num == HSIC_DATA) {
+		else if (data_type == HSIC_DATA) {
 			unsigned long flags;
 			int foundIndex = -1;
 
@@ -671,8 +671,463 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	subsys_cmd_code = *(uint16_t *)temp;
 	temp += 2;
 	data_type = APPS_DATA;
-	
 	/* Dont send any command other than mode reset */
+	if (chk_apps_master() && cmd_code == MODE_CMD) {
+		if (subsys_id != RESET_ID)
+			data_type = MODEM_DATA;
+	}
+
+	pr_debug("diag: %d %d %d", cmd_code, subsys_id, subsys_cmd_code);
+	for (i = 0; i < diag_max_reg; i++) {
+		entry = driver->table[i];
+		if (entry.process_id != NO_PROCESS) {
+			if (entry.cmd_code == cmd_code && entry.subsys_id ==
+				 subsys_id && entry.cmd_code_lo <=
+							 subsys_cmd_code &&
+				  entry.cmd_code_hi >= subsys_cmd_code) {
+				diag_send_data(entry, buf, len, data_type);
+				packet_type = 0;
+			} else if (entry.cmd_code == 255
+				  && cmd_code == 75) {
+				if (entry.subsys_id ==
+					subsys_id &&
+				   entry.cmd_code_lo <=
+					subsys_cmd_code &&
+					 entry.cmd_code_hi >=
+					subsys_cmd_code) {
+					diag_send_data(entry, buf, len,
+								 data_type);
+					packet_type = 0;
+				}
+			} else if (entry.cmd_code == 255 &&
+				  entry.subsys_id == 255) {
+				if (entry.cmd_code_lo <=
+						 cmd_code &&
+						 entry.
+						cmd_code_hi >= cmd_code) {
+					diag_send_data(entry, buf, len,
+								 data_type);
+					packet_type = 0;
+				}
+			}
+		}
+	}
+#if defined(CONFIG_DIAG_OVER_USB)
+	/* Check for the command/respond msg for the maximum packet length */
+	if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
+		(*(uint16_t *)(buf+2) == 0x0055)) {
+		for (i = 0; i < 4; i++)
+			*(driver->apps_rsp_buf+i) = *(buf+i);
+		*(uint32_t *)(driver->apps_rsp_buf+4) = PKT_SIZE;
+		encode_rsp_and_send(7);
+		return 0;
+	}
+	/* Check for Apps Only & get event mask request */
+	else if (!(driver->smd_data[MODEM_DATA].ch) && chk_apps_only() &&
+								*buf == 0x81) {
+		driver->apps_rsp_buf[0] = 0x81;
+		driver->apps_rsp_buf[1] = 0x0;
+		*(uint16_t *)(driver->apps_rsp_buf + 2) = 0x0;
+		*(uint16_t *)(driver->apps_rsp_buf + 4) = EVENT_LAST_ID + 1;
+		for (i = 0; i < EVENT_LAST_ID/8 + 1; i++)
+			*(unsigned char *)(driver->apps_rsp_buf + 6 + i) = 0x0;
+		encode_rsp_and_send(6 + EVENT_LAST_ID/8);
+		return 0;
+	}
+	/* Get log ID range & Check for Apps Only */
+	else if (!(driver->smd_data[MODEM_DATA].ch) && chk_apps_only()
+			  && (*buf == 0x73) && *(int *)(buf+4) == 1) {
+		driver->apps_rsp_buf[0] = 0x73;
+		*(int *)(driver->apps_rsp_buf + 4) = 0x1; /* operation ID */
+		*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* success code */
+		*(int *)(driver->apps_rsp_buf + 12) = LOG_GET_ITEM_NUM(LOG_0);
+		*(int *)(driver->apps_rsp_buf + 16) = LOG_GET_ITEM_NUM(LOG_1);
+		*(int *)(driver->apps_rsp_buf + 20) = LOG_GET_ITEM_NUM(LOG_2);
+		*(int *)(driver->apps_rsp_buf + 24) = LOG_GET_ITEM_NUM(LOG_3);
+		*(int *)(driver->apps_rsp_buf + 28) = LOG_GET_ITEM_NUM(LOG_4);
+		*(int *)(driver->apps_rsp_buf + 32) = LOG_GET_ITEM_NUM(LOG_5);
+		*(int *)(driver->apps_rsp_buf + 36) = LOG_GET_ITEM_NUM(LOG_6);
+		*(int *)(driver->apps_rsp_buf + 40) = LOG_GET_ITEM_NUM(LOG_7);
+		*(int *)(driver->apps_rsp_buf + 44) = LOG_GET_ITEM_NUM(LOG_8);
+		*(int *)(driver->apps_rsp_buf + 48) = LOG_GET_ITEM_NUM(LOG_9);
+		*(int *)(driver->apps_rsp_buf + 52) = LOG_GET_ITEM_NUM(LOG_10);
+		*(int *)(driver->apps_rsp_buf + 56) = LOG_GET_ITEM_NUM(LOG_11);
+		*(int *)(driver->apps_rsp_buf + 60) = LOG_GET_ITEM_NUM(LOG_12);
+		*(int *)(driver->apps_rsp_buf + 64) = LOG_GET_ITEM_NUM(LOG_13);
+		*(int *)(driver->apps_rsp_buf + 68) = LOG_GET_ITEM_NUM(LOG_14);
+		*(int *)(driver->apps_rsp_buf + 72) = LOG_GET_ITEM_NUM(LOG_15);
+		encode_rsp_and_send(75);
+		return 0;
+	}
+	/* Respond to Get SSID Range request message */
+	else if (!(driver->smd_data[MODEM_DATA].ch) && chk_apps_only()
+			 && (*buf == 0x7d) && (*(buf+1) == 0x1)) {
+		driver->apps_rsp_buf[0] = 0x7d;
+		driver->apps_rsp_buf[1] = 0x1;
+		driver->apps_rsp_buf[2] = 0x1;
+		driver->apps_rsp_buf[3] = 0x0;
+		/* -1 to un-account for OEM SSID range */
+		*(int *)(driver->apps_rsp_buf + 4) = MSG_MASK_TBL_CNT - 1;
+		*(uint16_t *)(driver->apps_rsp_buf + 8) = MSG_SSID_0;
+		*(uint16_t *)(driver->apps_rsp_buf + 10) = MSG_SSID_0_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 12) = MSG_SSID_1;
+		*(uint16_t *)(driver->apps_rsp_buf + 14) = MSG_SSID_1_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 16) = MSG_SSID_2;
+		*(uint16_t *)(driver->apps_rsp_buf + 18) = MSG_SSID_2_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 20) = MSG_SSID_3;
+		*(uint16_t *)(driver->apps_rsp_buf + 22) = MSG_SSID_3_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 24) = MSG_SSID_4;
+		*(uint16_t *)(driver->apps_rsp_buf + 26) = MSG_SSID_4_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 28) = MSG_SSID_5;
+		*(uint16_t *)(driver->apps_rsp_buf + 30) = MSG_SSID_5_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 32) = MSG_SSID_6;
+		*(uint16_t *)(driver->apps_rsp_buf + 34) = MSG_SSID_6_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 36) = MSG_SSID_7;
+		*(uint16_t *)(driver->apps_rsp_buf + 38) = MSG_SSID_7_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 40) = MSG_SSID_8;
+		*(uint16_t *)(driver->apps_rsp_buf + 42) = MSG_SSID_8_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 44) = MSG_SSID_9;
+		*(uint16_t *)(driver->apps_rsp_buf + 46) = MSG_SSID_9_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 48) = MSG_SSID_10;
+		*(uint16_t *)(driver->apps_rsp_buf + 50) = MSG_SSID_10_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 52) = MSG_SSID_11;
+		*(uint16_t *)(driver->apps_rsp_buf + 54) = MSG_SSID_11_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 56) = MSG_SSID_12;
+		*(uint16_t *)(driver->apps_rsp_buf + 58) = MSG_SSID_12_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 60) = MSG_SSID_13;
+		*(uint16_t *)(driver->apps_rsp_buf + 62) = MSG_SSID_13_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 64) = MSG_SSID_14;
+		*(uint16_t *)(driver->apps_rsp_buf + 66) = MSG_SSID_14_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 68) = MSG_SSID_15;
+		*(uint16_t *)(driver->apps_rsp_buf + 70) = MSG_SSID_15_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 72) = MSG_SSID_16;
+		*(uint16_t *)(driver->apps_rsp_buf + 74) = MSG_SSID_16_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 76) = MSG_SSID_17;
+		*(uint16_t *)(driver->apps_rsp_buf + 78) = MSG_SSID_17_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 80) = MSG_SSID_18;
+		*(uint16_t *)(driver->apps_rsp_buf + 82) = MSG_SSID_18_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 84) = MSG_SSID_19;
+		*(uint16_t *)(driver->apps_rsp_buf + 86) = MSG_SSID_19_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 88) = MSG_SSID_20;
+		*(uint16_t *)(driver->apps_rsp_buf + 90) = MSG_SSID_20_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 92) = MSG_SSID_21;
+		*(uint16_t *)(driver->apps_rsp_buf + 94) = MSG_SSID_21_LAST;
+		*(uint16_t *)(driver->apps_rsp_buf + 96) = MSG_SSID_22;
+		*(uint16_t *)(driver->apps_rsp_buf + 98) = MSG_SSID_22_LAST;
+		encode_rsp_and_send(99);
+		return 0;
+	}
+	/* Check for Apps Only Respond to Get Subsys Build mask */
+	else if (!(driver->smd_data[MODEM_DATA].ch) && chk_apps_only()
+			 && (*buf == 0x7d) && (*(buf+1) == 0x2)) {
+		ssid_first = *(uint16_t *)(buf + 2);
+		ssid_last = *(uint16_t *)(buf + 4);
+		ssid_range = 4 * (ssid_last - ssid_first + 1);
+		/* frame response */
+		driver->apps_rsp_buf[0] = 0x7d;
+		driver->apps_rsp_buf[1] = 0x2;
+		*(uint16_t *)(driver->apps_rsp_buf + 2) = ssid_first;
+		*(uint16_t *)(driver->apps_rsp_buf + 4) = ssid_last;
+		driver->apps_rsp_buf[6] = 0x1;
+		driver->apps_rsp_buf[7] = 0x0;
+		ptr = driver->apps_rsp_buf + 8;
+		/* bld time masks */
+		switch (ssid_first) {
+		case MSG_SSID_0:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_0[i/4];
+			break;
+		case MSG_SSID_1:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_1[i/4];
+			break;
+		case MSG_SSID_2:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_2[i/4];
+			break;
+		case MSG_SSID_3:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_3[i/4];
+			break;
+		case MSG_SSID_4:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_4[i/4];
+			break;
+		case MSG_SSID_5:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_5[i/4];
+			break;
+		case MSG_SSID_6:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_6[i/4];
+			break;
+		case MSG_SSID_7:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_7[i/4];
+			break;
+		case MSG_SSID_8:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_8[i/4];
+			break;
+		case MSG_SSID_9:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_9[i/4];
+			break;
+		case MSG_SSID_10:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_10[i/4];
+			break;
+		case MSG_SSID_11:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_11[i/4];
+			break;
+		case MSG_SSID_12:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_12[i/4];
+			break;
+		case MSG_SSID_13:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_13[i/4];
+			break;
+		case MSG_SSID_14:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_14[i/4];
+			break;
+		case MSG_SSID_15:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_15[i/4];
+			break;
+		case MSG_SSID_16:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_16[i/4];
+			break;
+		case MSG_SSID_17:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_17[i/4];
+			break;
+		case MSG_SSID_18:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_18[i/4];
+			break;
+		case MSG_SSID_19:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_19[i/4];
+			break;
+		case MSG_SSID_20:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_20[i/4];
+			break;
+		case MSG_SSID_21:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_21[i/4];
+			break;
+		case MSG_SSID_22:
+			for (i = 0; i < ssid_range; i += 4)
+				*(int *)(ptr + i) = msg_bld_masks_22[i/4];
+			break;
+		}
+		encode_rsp_and_send(8 + ssid_range - 1);
+		return 0;
+	}
+	/* Check for download command */
+	else if ((cpu_is_msm8x60() || chk_apps_master()) && (*buf == 0x3A)) {
+		/* send response back */
+		driver->apps_rsp_buf[0] = *buf;
+		encode_rsp_and_send(0);
+		msleep(5000);
+		/* call download API */
+		msm_set_restart_mode(RESTART_DLOAD);
+		printk(KERN_CRIT "diag: download mode set, Rebooting SoC..\n");
+		kernel_restart(NULL);
+		/* Not required, represents that command isnt sent to modem */
+		return 0;
+	}
+	/* Check for polling for Apps only DIAG */
+	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
+		(*(buf+2) == 0x03)) {
+		/* If no one has registered for polling */
+		if (chk_polling_response()) {
+			/* Respond to polling for Apps only DIAG */
+			for (i = 0; i < 3; i++)
+				driver->apps_rsp_buf[i] = *(buf+i);
+			for (i = 0; i < 13; i++)
+				driver->apps_rsp_buf[i+3] = 0;
+
+			encode_rsp_and_send(15);
+			return 0;
+		}
+	}
+	/* Return the Delayed Response Wrap Status */
+	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
+		(*(buf+2) == 0x04) && (*(buf+3) == 0x0)) {
+		memcpy(driver->apps_rsp_buf, buf, 4);
+		driver->apps_rsp_buf[4] = wrap_enabled;
+		encode_rsp_and_send(4);
+		return 0;
+	}
+	/* Wrap the Delayed Rsp ID */
+	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
+		(*(buf+2) == 0x05) && (*(buf+3) == 0x0)) {
+		wrap_enabled = true;
+		memcpy(driver->apps_rsp_buf, buf, 4);
+		driver->apps_rsp_buf[4] = wrap_count;
+		encode_rsp_and_send(5);
+		return 0;
+	}
+	 /* Check for ID for NO MODEM present */
+	else if (chk_polling_response()) {
+		/* respond to 0x0 command */
+		if (*buf == 0x00) {
+			for (i = 0; i < 55; i++)
+				driver->apps_rsp_buf[i] = 0;
+
+			encode_rsp_and_send(54);
+			return 0;
+		}
+		/* respond to 0x7c command */
+		else if (*buf == 0x7c) {
+			driver->apps_rsp_buf[0] = 0x7c;
+			for (i = 1; i < 8; i++)
+				driver->apps_rsp_buf[i] = 0;
+			/* Tools ID for APQ 8060 */
+			*(int *)(driver->apps_rsp_buf + 8) =
+							 chk_config_get_id();
+			*(unsigned char *)(driver->apps_rsp_buf + 12) = '\0';
+			*(unsigned char *)(driver->apps_rsp_buf + 13) = '\0';
+			encode_rsp_and_send(13);
+			return 0;
+		}
+	}
+#endif
+	return packet_type;
+}
+
+#ifdef CONFIG_DIAG_OVER_USB
+void diag_send_error_rsp(int index)
+{
+	int i;
+
+	if (index > 490) {
+		pr_err("diag: error response too huge, aborting\n");
+		return;
+	}
+	driver->apps_rsp_buf[0] = 0x13; /* error code 13 */
+	for (i = 0; i < index; i++)
+		driver->apps_rsp_buf[i+1] = *(driver->hdlc_buf+i);
+	encode_rsp_and_send(index - 3);
+}
+#else
+static inline void diag_send_error_rsp(int index) {}
+#endif
+
+void diag_process_hdlc(void *data, unsigned len)
+{
+	struct diag_hdlc_decode_type hdlc;
+	int ret, type = 0;
+	pr_debug("diag: HDLC decode fn, len of data  %d\n", len);
+	hdlc.dest_ptr = driver->hdlc_buf;
+	hdlc.dest_size = USB_MAX_OUT_BUF;
+	hdlc.src_ptr = data;
+	hdlc.src_size = len;
+	hdlc.src_idx = 0;
+	hdlc.dest_idx = 0;
+	hdlc.escaping = 0;
+
+	ret = diag_hdlc_decode(&hdlc);
+
+	if (ret)
+		type = diag_process_apps_pkt(driver->hdlc_buf,
+							  hdlc.dest_idx - 3);
+	else if (driver->debug_flag) {
+		printk(KERN_ERR "Packet dropped due to bad HDLC coding/CRC"
+				" errors or partial packet received, packet"
+				" length = %d\n", len);
+		print_hex_dump(KERN_DEBUG, "Dropped Packet Data: ", 16, 1,
+					   DUMP_PREFIX_ADDRESS, data, len, 1);
+		driver->debug_flag = 0;
+	}
+	/* send error responses from APPS for Central Routing */
+	if (type == 1 && chk_apps_only()) {
+		diag_send_error_rsp(hdlc.dest_idx);
+		type = 0;
+	}
+	/* implies this packet is NOT meant for apps */
+	if (!(driver->smd_data[MODEM_DATA].ch) && type == 1) {
+		if (chk_apps_only()) {
+			diag_send_error_rsp(hdlc.dest_idx);
+		} else { /* APQ 8060, Let Q6 respond */
+			if (driver->smd_data[LPASS_DATA].ch)
+				smd_write(driver->smd_data[LPASS_DATA].ch,
+						driver->hdlc_buf,
+						hdlc.dest_idx - 3);
+		}
+		type = 0;
+	}
+
+#ifdef DIAG_DEBUG
+	pr_debug("diag: hdlc.dest_idx = %d", hdlc.dest_idx);
+	for (i = 0; i < hdlc.dest_idx; i++)
+		printk(KERN_DEBUG "\t%x", *(((unsigned char *)
+							driver->hdlc_buf)+i));
+#endif /* DIAG DEBUG */
+	/* ignore 2 bytes for CRC, one for 7E and send */
+	if ((driver->smd_data[MODEM_DATA].ch) && (ret) && (type) &&
+						(hdlc.dest_idx > 3)) {
+		APPEND_DEBUG('g');
+		smd_write(driver->smd_data[MODEM_DATA].ch,
+					driver->hdlc_buf, hdlc.dest_idx - 3);
+		APPEND_DEBUG('h');
+#ifdef DIAG_DEBUG
+		printk(KERN_INFO "writing data to SMD, pkt length %d\n", len);
+		print_hex_dump(KERN_DEBUG, "Written Packet Data to SMD: ", 16,
+			       1, DUMP_PREFIX_ADDRESS, data, len, 1);
+#endif /* DIAG DEBUG */
+	}
+}
+
+#ifdef CONFIG_DIAG_OVER_USB
+/* 2+1 for modem ; 2 for LPASS ; 1 for WCNSS */
+#define N_LEGACY_WRITE	(driver->poolsize + 6)
+#define N_LEGACY_READ	1
+
+int diagfwd_connect(void)
+{
+	int err;
+	int i;
+
+	printk(KERN_DEBUG "diag: USB connected\n");
+	err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
+			N_LEGACY_READ);
+	if (err)
+		printk(KERN_ERR "diag: unable to alloc USB req on legacy ch");
+
+	driver->usb_connected = 1;
+	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+		driver->smd_data[i].in_busy_1 = 0;
+		driver->smd_data[i].in_busy_2 = 0;
+		/* Poll SMD data channels to check for data */
+		queue_work(driver->diag_wq,
+			&(driver->smd_data[i].diag_read_smd_work));
+		/* Poll SMD CNTL channels to check for data */
+		diag_smd_notify(&(driver->smd_cntl[i]), SMD_EVENT_DATA);
+	}
+
+	/* Poll USB channel to check for data*/
+	queue_work(driver->diag_wq, &(driver->diag_read_work));
+#ifdef CONFIG_DIAG_SDIO_PIPE
+	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa()) {
+		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
+			diagfwd_connect_sdio();
+		else
+			printk(KERN_INFO "diag: No USB MDM ch");
+	}
+#endif
+	return 0;
+}
+
+int diagfwd_disconnect(void)
+{
+	int i;
 
 	printk(KERN_DEBUG "diag: USB disconnected\n");
 	driver->usb_connected = 0;
@@ -762,18 +1217,6 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 				queue_work(driver->diag_wq,
 						 &(driver->diag_read_work));
 		}
-
-#ifdef CONFIG_LGE_DM_APP
-		if (driver->logging_mode == DM_APP_MODE) {
-			if (status != -ECONNRESET && status != -ESHUTDOWN)
-				queue_work(driver->diag_wq,
-					&(driver->diag_proc_hdlc_work));
-			else
-				queue_work(driver->diag_wq,
-						 &(driver->diag_read_work));
-		}
-#endif
-
 	}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	else if (buf == (void *)driver->usb_buf_mdm_out) {

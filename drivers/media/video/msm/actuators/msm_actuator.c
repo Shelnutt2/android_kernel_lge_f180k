@@ -65,79 +65,9 @@ static int32_t msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 	uint32_t size = a_ctrl->reg_tbl_size, i = 0;
 	int32_t rc = 0;
 	struct msm_camera_i2c_reg_tbl *i2c_tbl = a_ctrl->i2c_reg_tbl;
-	uint8_t hw_reg_write = 1;
 	CDBG("%s: IN\n", __func__);
-        if (a_ctrl->curr_hwparams == hw_params)
-                hw_reg_write = 0;
-// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 1224 Use slew rate default value not recommand value because it make bad effect at some module
-    // Start LGE_BSP_CAMERA::seongjo.kim@lge.com 1004 Apply slew rate
-#if 0
-	if (cur_step_type != a_ctrl->af_status  &&  a_ctrl->af_status!=6)
-	{
-		cur_step_type = a_ctrl->af_status;
-		if (cur_step_type==COARSE_STEP)
-		{
-			printk("[SlewRate] Set COARSE_STEP\n");
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xEC;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0xA3;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xF2;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0x18;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xA1;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0x05;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xDC;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0x51;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-		}
-		else if (cur_step_type==SWEEP_STEP)
-		{
-			printk("[SlewRate] Set SWEEP_STEP\n");
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xEC;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0xA3;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xF2;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0xC8;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xA1;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0x04;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xDC;
-			i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = 0x51;
-			i2c_tbl[a_ctrl->i2c_tbl_index].delay = 0;
-			a_ctrl->i2c_tbl_index++;
-		}
-	}
-	if (cur_step_type==COARSE_STEP)
-	{
-		hw_dword = 0x6;
-	}
-	else if (cur_step_type==SWEEP_STEP)
-	{
-		hw_dword = 0x7;
-	}
-	// End LGE_BSP_CAMERA::seongjo.kim@lge.com 1004 Apply slew rate
-#endif
-// End LGE_BSP_CAMERA::seongjo.kim@lge.com 1224 Use slew rate default value not recommand value because it make bad effect at some module
-
-
 	for (i = 0; i < size; i++) {
 		if (write_arr[i].reg_write_type == MSM_ACTUATOR_WRITE_DAC) {
-		    // Flow Here
 			value = (next_lens_position <<
 				write_arr[i].data_shift) |
 				((hw_dword & write_arr[i].hw_mask) >>
@@ -173,22 +103,18 @@ static int32_t msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 			i2c_tbl[a_ctrl->i2c_tbl_index].delay = delay;
 			a_ctrl->i2c_tbl_index++;
 		} else {
-			if (hw_reg_write) {
-				i2c_byte1 = write_arr[i].reg_addr;
-				i2c_byte2 = (hw_dword & write_arr[i].hw_mask) >>
-					write_arr[i].hw_shift;
-				CDBG("%s: i2c_byte1:0x%x, i2c_byte2:0x%x\n", __func__,
-					i2c_byte1, i2c_byte2);
-				i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = i2c_byte1;
-				i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = i2c_byte2;
-				i2c_tbl[a_ctrl->i2c_tbl_index].delay = delay;
-				a_ctrl->i2c_tbl_index++;
-			}
+			i2c_byte1 = write_arr[i].reg_addr;
+			i2c_byte2 = (hw_dword & write_arr[i].hw_mask) >>
+				write_arr[i].hw_shift;
 		}
+		CDBG("%s: i2c_byte1:0x%x, i2c_byte2:0x%x\n", __func__,
+			i2c_byte1, i2c_byte2);
+		i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = i2c_byte1;
+		i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = i2c_byte2;
+		i2c_tbl[a_ctrl->i2c_tbl_index].delay = delay;
+		a_ctrl->i2c_tbl_index++;
 	}
-	CDBG("%s: OUT\n", __func__);
-	if (rc == 0)
-		a_ctrl->curr_hwparams = hw_params;
+		CDBG("%s: OUT\n", __func__);
 	return rc;
 }
 
@@ -412,13 +338,6 @@ static int32_t msm_actuator_move_focus(
 			a_ctrl->curr_region_index += sign_dir;
 		}
 		a_ctrl->curr_step_pos = target_step_pos;
-		// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 Add log for debug AF issue & WorkAround
-		if (count_actuator_write > 2)
-		{
-		   printk("[ERROR][%s] count_actuator_write = %d ---> break\n",__func__,count_actuator_write);
-		   break;
-	    }
-		// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 Add log for debug AF issue & WorkAround
 	}
 
 	rc = msm_camera_i2c_write_table_w_microdelay(&a_ctrl->i2c_client,
@@ -452,13 +371,13 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	kfree(a_ctrl->step_position_table);
 	a_ctrl->step_position_table = NULL;
 
-#if defined(CONFIG_IMX091)
-    extern uint8_t imx091_afcalib_data[8];
-#endif // #if defined(CONFIG_IMX091)
+	/* Fill step position table */
+	a_ctrl->step_position_table =
+		kmalloc(sizeof(uint16_t) *
+		(set_info->af_tuning_params.total_steps + 1), GFP_KERNEL);
 
-#if defined(CONFIG_IMX111)
-    extern uint8_t imx111_afcalib_data[4];
-#endif // #if defined(CONFIG_IMX111)
+	if (a_ctrl->step_position_table == NULL)
+		return -EFAULT;
 
 	cur_code = set_info->af_tuning_params.initial_code;
 	a_ctrl->step_position_table[step_index++] = cur_code;
@@ -498,11 +417,6 @@ static int32_t msm_actuator_set_default_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t rc = 0;
-//  Start - [G][Camera][Common] youngwook.song Fix the Actuator Noise - "Tick!" - Issue by adding delay in proportion to distance of "Infinite"
-#if 1
-	uint32_t hw_damping;
-	unsigned int delay;
-	int init_pos, cur_dac, mid_dac, cur_pos;
 	CDBG("%s called\n", __func__);
 
 	if (a_ctrl->curr_step_pos != 0)

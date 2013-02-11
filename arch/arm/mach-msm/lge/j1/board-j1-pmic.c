@@ -702,7 +702,7 @@ apq8064_pm8921_chg_pdata __devinitdata = {
 
 static struct pm8xxx_ccadc_platform_data
 apq8064_pm8xxx_ccadc_pdata = {
-	.r_sense		= 10,
+	.r_sense_uohm		= 10,
 	.calib_delay_ms		= 600000,
 };
 
@@ -730,7 +730,7 @@ apq8064_pm8921_bms_pdata __devinitdata = {
 	.v_cutoff		= 3500,
 #endif
 	.ignore_shutdown_soc = 0,
-	.r_sense		= 10,
+	.r_sense_uohm		= 10,
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
 	.shutdown_soc_valid_limit = 20,
 	.adjust_soc_low_threshold = 25,

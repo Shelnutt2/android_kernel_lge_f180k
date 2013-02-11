@@ -58,6 +58,7 @@ enum pm8921_chg_led_src_config {
 
 /**
  * struct pm8921_charger_platform_data -
+ * @safety_time:	max charging time in minutes incl. fast and trkl
  *			valid range 4 to 512 min. PON default 120 min
  * @ttrkl_time:		max trckl charging time in minutes
  *			valid range 1 to 64 mins. PON default 15 min
@@ -97,6 +98,10 @@ enum pm8921_chg_led_src_config {
  * @get_batt_capacity_percent:
  *			a board specific function to return battery
  *			capacity. If null - a default one will be used
+ * @dc_unplug_check:	enables the reverse boosting fix for the DC_IN line
+ *			however, this should only be enabled for devices which
+ *			control the DC OVP FETs otherwise this option should
+ *			remain disabled
  * @has_dc_supply:	report DC online if this bit is set in board file
  * @trkl_voltage:	the trkl voltage in (mV) below which hw controlled
  *			 trkl charging happens with linear charger
@@ -145,6 +150,7 @@ enum pm8921_chg_led_src_config {
  */
 struct pm8921_charger_platform_data {
 	struct pm8xxx_charger_core_data	charger_cdata;
+	unsigned int			safety_time;
 	unsigned int			ttrkl_time;
 	unsigned int			update_time;
 	unsigned int			max_voltage;
@@ -163,12 +169,22 @@ struct pm8921_charger_platform_data {
 	unsigned int			usb_max_current;
 	unsigned int			cool_bat_chg_current;
 	unsigned int			warm_bat_chg_current;
+#ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
+	int						temp_level_1;
+/* Add temp for charing scenario on SPRINT */
+	int						temp_level_1_1;
+	int						temp_level_2;
+	int						temp_level_3;
+	int						temp_level_4;
+	int						temp_level_5;
+#endif
 	unsigned int			cool_bat_voltage;
 	unsigned int			warm_bat_voltage;
 	unsigned int			(*get_batt_capacity_percent) (void);
 	int64_t				batt_id_min;
 	int64_t				batt_id_max;
 	bool				keep_btm_on_suspend;
+	bool				dc_unplug_check;
 	bool				has_dc_supply;
 	int				trkl_voltage;
 	int				weak_voltage;
@@ -188,6 +204,10 @@ struct pm8921_charger_platform_data {
 	int				btc_delay_ms;
 	int				btc_panic_if_cant_stop_chg;
 	int				stop_chg_upon_expiry;
+#ifdef CONFIG_LGE_PM
+	/* MAKO patch for BMS */
+	int 			eoc_check_soc;
+#endif
 };
 
 enum pm8921_charger_source {
@@ -203,6 +223,15 @@ void pm8921_charger_force_update_batt_psy(void);
 void pm8921_charger_vbus_draw(unsigned int mA);
 int pm8921_charger_register_vbus_sn(void (*callback)(int));
 void pm8921_charger_unregister_vbus_sn(void (*callback)(int));
+/**
+ * pm8921_charger_enable -
+ *
+ * @enable: 1 means enable charging, 0 means disable
+ *
+ * Enable/Disable battery charging current, the device will still draw current
+ * from the charging source
+ */
+int pm8921_charger_enable(bool enable);
 
 /**
  * pm8921_is_usb_chg_plugged_in - is usb plugged in

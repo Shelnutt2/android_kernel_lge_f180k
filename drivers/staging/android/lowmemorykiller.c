@@ -56,6 +56,7 @@ static int lowmem_minfree[6] = {
 	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_size = 4;
+static int lmk_fast_run = 1;
 
 #ifdef CONFIG_MACH_LGE
 static struct task_struct *lowmem_deathpending;
@@ -114,7 +115,10 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					int *other_free, int *other_file,
 					int use_cma_pages)
 {
-	struct task_struct *task = data;
+	struct zone *zone;
+	struct zoneref *zoneref;
+	int zone_idx;
+
 
 	for_each_zone_zonelist(zone, zoneref, zonelist, MAX_NR_ZONES) {
 		if ((zone_idx = zonelist_zone_idx(zoneref)) == ZONE_MOVABLE) {
@@ -216,7 +220,6 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 			     "%d\n", *other_free, *other_file);
 	}
 }
-#endif
 
 static DEFINE_MUTEX(scan_mutex);
 
@@ -350,9 +353,7 @@ static struct shrinker lowmem_shrinker = {
 
 static int __init lowmem_init(void)
 {
-#ifdef CONFIG_MACH_LGE
-	task_free_register(&task_nb);
-#endif
+
 	register_shrinker(&lowmem_shrinker);
 	return 0;
 }
@@ -360,9 +361,6 @@ static int __init lowmem_init(void)
 static void __exit lowmem_exit(void)
 {
 	unregister_shrinker(&lowmem_shrinker);
-#ifdef CONFIG_MACH_LGE
-	task_free_unregister(&task_nb);
-#endif
 }
 
 #ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
@@ -457,6 +455,7 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
 
+module_param_named(lmk_fast_run, lmk_fast_run, int, S_IRUGO | S_IWUSR);
 module_init(lowmem_init);
 module_exit(lowmem_exit);
 

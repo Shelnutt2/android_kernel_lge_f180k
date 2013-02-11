@@ -273,28 +273,6 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		buf->state = MSM_BUFFER_STATE_UNUSED;
 		return;
 	}
-/* LGE_CHANGE_S, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
-	if (!get_server_use_count() &&
-		pmctl && pmctl->hardware_running) {
-		pr_err("%s: daemon crashed but hardware is still running\n",
-			   __func__);
-		if (pmctl->mctl_release) {
-			pr_err("%s: Releasing now\n", __func__);
-			/*do not send any commands to hardware
-			after reaching this point*/
-			pmctl->mctl_cmd = NULL;
-			pmctl->mctl_release(pmctl);
-			pmctl->mctl_release = NULL;
-			pmctl->hardware_running = 0;
-		}
-		else {
-			pr_err("%s: pmctl release is NULL\n", __func__);
-		}
-	} else {
-		pr_err("server use count %d, pmctl pointer %p, hardware_running %d\n", get_server_use_count(),
-		pmctl, pmctl->hardware_running);
-	}
-/* LGE_CHANGE_E, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		videobuf2_pmem_contig_user_put(mem, pmctl->client,

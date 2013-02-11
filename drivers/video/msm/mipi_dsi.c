@@ -287,6 +287,14 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		else
 			up(&mfd->dma->mutex);
 
+		return ret;
+	} else {
+		ret = 0;
+	}
+	#if defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT) || defined(CONFIG_FB_MSM_MIPI_DSI_LGIT_FHD)
+	mipi_dsi_op_mode_config(mipi->mode);
+	#endif
+#else
 	ret = panel_next_on(pdev);
 
 	mipi_dsi_op_mode_config(mipi->mode);

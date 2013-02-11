@@ -47,17 +47,34 @@ static struct v4l2_subdev_ops imx091_eeprom_subdev_ops = {
 	.core = &imx091_eeprom_subdev_core_ops,
 };
 
-static uint8_t imx091_wbcalib_data[6];
-static uint8_t imx091_afcalib_data[6];
-static struct msm_calib_wb imx091_wb_data;
-static struct msm_calib_af imx091_af_data;
+uint8_t imx091_wb50calib_data[6];
+uint8_t imx091_wb30calib_data[6];
+uint8_t imx091_afcalib_data[8]; //LGE
+uint8_t imx091_lsc50calib_data[884];
+uint8_t imx091_lsc40calib_data[884];
+/* LGE_CHANGE_S, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+uint8_t imx091_af_defocus_data[11];
+/* LGE_CHANGE_E, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+struct msm_calib_wb imx091_wb50_data;
+struct msm_calib_wb imx091_wb30_data;
+struct msm_calib_af imx091_af_data;
+struct msm_calib_lsc imx091_lsc50_data;
+struct msm_calib_lsc imx091_lsc40_data;
+
+// Start LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-08-14
+uint8_t imx091_Cal_ver; // rafal47 0813
+struct msm_calib_ver imx091_Calib_Ver; // rafal47 0813
+// End LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-08-14
 
 static struct msm_camera_eeprom_info_t imx091_calib_supp_info = {
-	{TRUE, 6, 1, 1},
-	{TRUE, 6, 0, 32768},
-	{FALSE, 0, 0, 1},
-	{FALSE, 0, 0, 1},
-	{FALSE, 0, 0, 1},
+	{TRUE, 8, 4, 1}, //LGE af, need to change size, index, qvalue
+	{TRUE, 6, 0, 1024},//LGE wb, need to change size, index, qvalue
+	{TRUE, 6, 1, 1024},//LGE wb, need to change size, index, qvalue
+//	{TRUE, 6, 0, 1},//LGE wb, need to change size, index, qvalue
+	{TRUE, 884, 2, 255}, //LGE lsc, need to change size, index, qvalue
+	{TRUE, 884, 3, 255}, //LGE lsc, need to change size, index, qvalue
+	{FALSE, 0, 0, 1}, //LGE dpc
+	{TRUE, 1, 5, 1}, // LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-08-14
 };
 
 static struct msm_camera_eeprom_read_t imx091_eeprom_read_tbl[] = {

@@ -57,6 +57,11 @@ struct pm8921_bms_platform_data {
 	int				chg_term_ua;
 	int				normal_voltage_calc_ms;
 	int				low_voltage_calc_ms;
+#ifdef CONFIG_LGE_PM
+	/* MAKO patch */
+	int				eoc_check_soc;
+	int 			first_fixed_iavg_ma;
+#endif
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)

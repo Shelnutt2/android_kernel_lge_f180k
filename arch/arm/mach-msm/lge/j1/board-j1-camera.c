@@ -19,6 +19,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/gpiomux.h>
 #include <media/msm_camera.h>
+#include <mach/board_lge.h>
 #include "devices.h"
 #include "board-j1.h"
 
@@ -586,6 +587,8 @@ void __init apq8064_init_cam(void)
 {
 	msm_gpiomux_install(apq8064_cam_common_configs,
 			ARRAY_SIZE(apq8064_cam_common_configs));
+
+    mako_fixup_cam();
 
 	platform_device_register(&msm_camera_server);
 	platform_device_register(&msm8960_device_i2c_mux_gsbi4);

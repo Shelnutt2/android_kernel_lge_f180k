@@ -73,6 +73,12 @@ enum battery_type {
 	BATT_UNKNOWN = 0,
 	BATT_PALLADIUM,
 	BATT_DESAY,
+	BATT_LGE, /* LGE_UPDATE jungshik.park@lge.com 2012-04-18 battery type add */
+#ifdef CONFIG_LGE_PM
+	BATT_1900_LGE,
+	BATT_2100_LGE,
+	BATT_2200_LGE,
+#endif
 };
 
 /**

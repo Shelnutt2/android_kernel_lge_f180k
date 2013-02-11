@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/mutex.h>
+#include <linux/slimport.h>
 
 /* #define DEBUG */
 #define DEV_DBG_PREFIX "EXT_COMMON: "
@@ -1332,24 +1333,17 @@ static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
 {
 	uint8 len;
-	const uint8 *sad = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 1,
+	const uint8 *adb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 1,
 			&len);
-	uint32 *adb = external_common_state->audio_data_blocks;
 
-	if (sad == NULL)
+	if (external_common_state->audio_data_block == NULL)
 		return;
 
-	external_common_state->audio_data_block_cnt = 0;
-	while (len >= 3 && external_common_state->audio_data_block_cnt < 16) {
-		DEV_DBG("EDID: Audio Data Block=<ch=%d, format=%d "
-			"sampling=0x%02x bit-depth=0x%02x>\n",
-			(sad[1] & 0x7)+1, sad[1] >> 3, sad[2], sad[3]);
-		*adb++ = (uint32)sad[1] + ((uint32)sad[2] << 8)
-			+ ((uint32)sad[2] << 16);
-		++external_common_state->audio_data_block_cnt;
-		len -= 3;
-		sad += 3;
-	}
+	if (len > MAX_AUDIO_DATA_BLOCK_SIZE)
+		return;
+
+	memcpy(external_common_state->audio_data_block, adb + 1, len);
+	external_common_state->adb_size = len;
 }
 
 static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
@@ -1507,6 +1501,38 @@ static void hdmi_edid_detail_desc(const uint8 *data_buf, uint32 *disp_mode)
 	}
 	if (ndx == max_num_of_elements)
 		DEV_INFO("%s: *no mode* found\n", __func__);
+}
+
+static void limit_supported_video_format(uint32 *video_format)
+{
+	switch(sp_get_link_bw()){
+	case 0x0a:
+		if((*video_format == HDMI_VFRMT_1920x1080p60_16_9) ||
+			(*video_format == HDMI_VFRMT_2880x480p60_4_3)||
+			(*video_format == HDMI_VFRMT_2880x480p60_16_9) ||
+			(*video_format == HDMI_VFRMT_1280x720p120_16_9))
+
+			*video_format = HDMI_VFRMT_1280x720p60_16_9;
+		else if((*video_format == HDMI_VFRMT_1920x1080p50_16_9) ||
+			(*video_format == HDMI_VFRMT_2880x576p50_4_3)||
+			(*video_format == HDMI_VFRMT_2880x576p50_16_9) ||
+			(*video_format == HDMI_VFRMT_1280x720p100_16_9))
+
+			*video_format = HDMI_VFRMT_1280x720p50_16_9;
+		else if (*video_format == HDMI_VFRMT_1920x1080i100_16_9)
+			*video_format = HDMI_VFRMT_1920x1080i50_16_9;
+
+		else if (*video_format == HDMI_VFRMT_1920x1080i120_16_9)
+			*video_format = HDMI_VFRMT_1920x1080i60_16_9;
+		break;
+	case 0x06:
+		if(*video_format != HDMI_VFRMT_640x480p60_4_3)
+			*video_format = HDMI_VFRMT_640x480p60_4_3;
+		break;
+	case 0x14:
+	default:
+		break;
+	}
 }
 
 static void add_supported_video_format(

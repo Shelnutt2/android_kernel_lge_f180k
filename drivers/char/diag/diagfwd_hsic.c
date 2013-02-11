@@ -35,6 +35,17 @@
 
 #define READ_HSIC_BUF_SIZE 2048
 
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+#include "diag_lock.h"
+static int diag_enable = DIAG_DISABLE;
+void diagfwd_hsic_enable(int enable)
+{
+    diag_enable = enable;
+}
+EXPORT_SYMBOL(diagfwd_hsic_enable);
+#endif
+
 static void diag_read_hsic_work_fn(struct work_struct *work)
 {
 	unsigned char *buf_in_hsic = NULL;
@@ -255,13 +266,6 @@ static void diag_hsic_resume(void *ctxt)
 				(diag_bridge[HSIC].usb_connected)))
 		queue_work(diag_bridge[HSIC].wq,
 			 &driver->diag_read_hsic_work);
-#else
-	if ((driver->count_hsic_pool < driver->poolsize_hsic) &&
-		((driver->logging_mode == MEMORY_DEVICE_MODE) ||
-				(driver->usb_mdm_connected)))
-		queue_work(driver->diag_bridge_wq,
-			 &driver->diag_read_hsic_work);
-#endif
 }
 
 struct diag_bridge_ops hsic_diag_bridge_ops = {

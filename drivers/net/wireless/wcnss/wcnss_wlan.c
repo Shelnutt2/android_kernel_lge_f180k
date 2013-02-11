@@ -47,12 +47,6 @@
 static int has_48mhz_xo = WCNSS_CONFIG_UNSPECIFIED;
 module_param(has_48mhz_xo, int, S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(has_48mhz_xo, "Is an external 48 MHz XO present");
-static DEFINE_SPINLOCK(reg_spinlock);
-
-#define MSM_RIVA_PHYS                0x03204000
-#define MSM_PRONTO_PHYS              0xfb21b000
-#define RIVA_SPARE_OFFSET             0x0b4
-#define RIVA_SUSPEND_BIT              BIT(24)
 
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		500
@@ -798,7 +792,6 @@ wcnss_trigger_config(struct platform_device *pdev)
 fail_wake:
 	wake_lock_destroy(&penv->wcnss_wake_lock);
 
-fail_sysfs:
 fail_res:
 	if (penv->pil)
 		pil_put(penv->pil);

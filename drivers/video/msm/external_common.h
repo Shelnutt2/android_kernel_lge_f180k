@@ -206,6 +206,14 @@ struct hdmi_disp_mode_list_type {
 };
 #endif
 
+/*
+ * As per the CEA-861E spec, there can be a total of 10 short audio
+ * descriptors with each SAD being 3 bytes long.
+ * Thus, the maximum length of the audio data block would be 30 bytes
+ */
+#define MAX_AUDIO_DATA_BLOCK_SIZE	30
+#define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE	3
+
 struct external_common_state_type {
 	boolean hpd_state;
 	struct kobject *uevent_kobj;
@@ -235,7 +243,10 @@ struct external_common_state_type {
 	uint8 spd_product_description[16];
 	boolean present_3d;
 	boolean present_hdcp;
-	uint32 audio_data_blocks[16];
+	uint8 audio_data_block[MAX_AUDIO_DATA_BLOCK_SIZE];
+	int adb_size;
+	uint8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
+	int sadb_size;
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
 #endif

@@ -534,10 +534,6 @@ struct mdp_buf_sync {
 	int *rel_fen_fd;
 };
 
-struct mdp_blend_cfg {
-	uint32_t is_premultiplied;
-};
-
 #define MDP_DISPLAY_COMMIT_OVERLAY 0x00000001
 
 struct mdp_display_commit {

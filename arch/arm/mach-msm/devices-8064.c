@@ -2863,6 +2863,14 @@ struct platform_device apq8064_dcvs_device = {
 	},
 };
 
+struct platform_device apq8064_cpu_idle_device = {
+	.name   = "msm_cpu_idle",
+	.id     = -1,
+	.dev = {
+		.platform_data = &apq8064_LPM_latency,
+	},
+};
+
 static struct msm_dcvs_core_info apq8064_core_info = {
 	.num_cores		= 4,
 	.sensors		= (int[]){7, 8, 9, 10},
@@ -2900,27 +2908,6 @@ static struct msm_dcvs_core_info apq8064_core_info = {
 		.current_temp	= 25,
 		.num_freq	= 0, /* set at runtime */
 	}
-};
-
-};
-
-static struct msm_dcvs_core_info apq8064_core_info = {
-	.freq_tbl = &apq8064_freq[0],
-	.core_param = {
-		.max_time_us = 100000,
-		.num_freq = ARRAY_SIZE(apq8064_freq),
-	},
-	.algo_param = {
-		.slack_time_us = 58000,
-		.scale_slack_time = 0,
-		.scale_slack_time_pct = 0,
-		.disable_pc_threshold = 1458000,
-		.em_window_size = 100000,
-		.em_max_util_pct = 97,
-		.ss_window_size = 1000000,
-		.ss_util_pct = 95,
-		.ss_iobusy_conv = 100,
-	},
 };
 
 struct platform_device apq8064_msm_gov_device = {

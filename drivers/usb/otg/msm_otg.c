@@ -1190,26 +1190,6 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 			mA > IDEV_ACA_CHG_LIMIT)
 		mA = IDEV_ACA_CHG_LIMIT;
 
-#ifdef CONFIG_LGE_PM
-	/* We replace original current limit into LGE
-	 * customized current limit only if cable is DCP or SDP.
-	 * XXX: In case of SDP(USB), android gadget will set current again.
-	 */
-	if (lge_pm_get_cable_type() != NO_INIT_CABLE) {
-		/*LGE_S jungwoo.yun@lge.com 2012-08-07 iusbmax set to 1100mA in 56K/910K cable and battery present*/
-		if((lge_pm_get_cable_type() == CABLE_56K || lge_pm_get_cable_type() == CABLE_910K) && pm8921_is_real_battery_present() == 1)
-		{
-			mA = 1100;
-			pr_info("CABLE_910K && pm8921_is_battery_present( ) 1100mA\n");
-		}
-		/*LGE_E jungwoo.yun@lge.com 2012-08-07 iusbmax set to 1100mA in 910K cable and battery present*/
-		else if(motg->chg_type == USB_SDP_CHARGER)
-			mA = lge_pm_get_usb_current();
-		else if (motg->chg_type == USB_DCP_CHARGER)
-			mA = lge_pm_get_ta_current();
-	}
-#endif
-
 	if (msm_otg_notify_chg_type(motg))
 		dev_err(motg->phy.dev,
 			"Failed notifying %d charger type to PMIC\n",
@@ -2461,13 +2441,16 @@ static void msm_otg_sm_work(struct work_struct *w)
 						OTG_STATE_B_PERIPHERAL;
 					break;
 				case USB_SDP_CHARGER:
-					if(!slimport_is_connected()) {
-						msm_otg_start_peripheral(otg, 1);
-						otg->phy->state =
-							OTG_STATE_B_PERIPHERAL;
-					}
-					schedule_delayed_work(&motg->check_ta_work,
-						MSM_CHECK_TA_DELAY);
+#ifdef CONFIG_LGE_PM
+					msm_otg_notify_charger(motg,
+							IDEV_CHG_MIN);
+#endif
+#if 1 //to know usb state on touch driver
+                    trigger_baseline_state_machine(1);
+#endif
+					msm_otg_start_peripheral(otg, 1);
+					otg->phy->state =
+						OTG_STATE_B_PERIPHERAL;
 					break;
 				default:
 					break;
@@ -3929,6 +3912,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
 	INIT_DELAYED_WORK(&motg->pmic_id_status_work, msm_pmic_id_status_w);
+	INIT_DELAYED_WORK(&motg->check_ta_work, msm_ta_detect_work);
 	setup_timer(&motg->id_timer, msm_otg_id_timer_func,
 				(unsigned long) motg);
 	ret = request_irq(motg->irq, msm_otg_irq, IRQF_SHARED,

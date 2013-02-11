@@ -565,6 +565,28 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 int subsystem_restart_dev(struct subsys_device *dev)
 {
 	const char *name = dev->desc->name;
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+        u32 subsys_magic_key;
+#endif
+
+	if (!get_device(&dev->dev))
+		return -ENODEV;
+
+	if (!try_module_get(dev->owner)) {
+		put_device(&dev->dev);
+		return -ENODEV;
+	}
+
+	/*
+	 * If a system reboot/shutdown is underway, ignore subsystem errors.
+	 * However, print a message so that we know that a subsystem behaved
+	 * unexpectedly here.
+	 */
+	if (system_state == SYSTEM_RESTART
+		|| system_state == SYSTEM_POWER_OFF) {
+		pr_err("%s crashed during a system poweroff/shutdown.\n", name);
+		return -EBUSY;
+	}
 	pr_info("Restart sequence requested for %s, restart_level = %d.\n",
 		name, restart_level);
 

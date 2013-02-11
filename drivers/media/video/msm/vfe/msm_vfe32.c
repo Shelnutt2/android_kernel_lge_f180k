@@ -1657,7 +1657,7 @@ static int vfe32_capture_raw(
 {
 	vfe32_ctrl->share_ctrl->outpath.out0.capture_cnt = num_frames_capture;
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
-	vfe32_start_common(pmctl, vfe32_ctrl); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+	vfe32_start_common(vfe32_ctrl);
 	return 0;
 }
 
@@ -1684,7 +1684,7 @@ static int vfe32_capture(
 
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
 
-	vfe32_start_common(pmctl, vfe32_ctrl); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+	vfe32_start_common(vfe32_ctrl);
 	/* for debug */
 	msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + 0x18C);
 	msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + 0x188);
@@ -1695,7 +1695,7 @@ static int vfe32_start(
 	struct msm_cam_media_controller *pmctl,
 	struct vfe32_ctrl_type *vfe32_ctrl)
 {
-	vfe32_start_common(pmctl, vfe32_ctrl); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+	vfe32_start_common(vfe32_ctrl);
 	return 0;
 }
 
@@ -3232,7 +3232,6 @@ static int vfe32_proc_general(
 		}
 
 		vfe32_stop(vfe32_ctrl);
-		pmctl->hardware_running = 0; /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 		break;
 
 	case VFE_CMD_SYNC_TIMER_SETTING:
@@ -4257,7 +4256,7 @@ static void vfe32_process_error_irq(
 		reg_value = msm_camera_io_r(
 			axi_ctrl->share_ctrl->vfebase + VFE_CAMIF_STATUS);
 		v4l2_subdev_notify(&axi_ctrl->subdev,
-			NOTIFY_VFE_ERROR, (void *)NULL);
+			NOTIFY_VFE_CAMIF_ERROR, (void *)NULL);
 		pr_err("camifStatus  = 0x%x\n", reg_value);
 		vfe32_send_isp_msg(&axi_ctrl->subdev,
 			axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_VFE_ERROR);
@@ -4331,7 +4330,7 @@ static void vfe32_process_common_error_irq(
 	if (errStatus & VFE32_IMASK_AXI_ERROR)
 		pr_err("vfe32_irq: axi error\n");
 
-	v4l2_subdev_notify(&axi_ctrl->subdev, NOTIFY_VFE_ERROR,
+	v4l2_subdev_notify(&axi_ctrl->subdev, NOTIFY_VFE_CAMIF_ERROR,
 		(void *)NULL);
 	vfe32_send_isp_msg(&axi_ctrl->subdev,
 		axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_VFE_ERROR);

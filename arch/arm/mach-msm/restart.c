@@ -147,11 +147,6 @@ static void __msm_power_off(int lower_pshold)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
-
-#ifndef QCT_CLK_KICK_START
-	pm8921_turn_on_19p2mhz_clk_ext();
-#endif
-
 	pm8xxx_reset_pwr_off(0);
 
 	if (lower_pshold) {
@@ -275,11 +270,7 @@ static void msm_restart_prepare(const char *cmd)
 		set_dload_mode(0);
 #endif
 
-#ifndef QCT_CLK_KICK_START
-	if (in_panic == 1) {
-		pm8921_turn_on_19p2mhz_clk_ext();
-	}
-#endif
+	printk(KERN_NOTICE "Going down for restart now\n");
 
 	pm8xxx_reset_pwr_off(1);
 
@@ -332,19 +323,18 @@ static void msm_restart_prepare(const char *cmd)
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		__raw_writel(0x77665501, restart_reason);
 	}
 #endif // CONFIG_LGE_HANDLE_PANIC
 
-#ifdef CONFIG_LGE_PM
-	pr_notice("check battery fet\n");
-	if(pm8921_chg_batfet_get_ext() > 0 && lge_get_factory_boot())
-	{
-		/* return control to PMIC FSM */
-		pm8921_chg_batfet_set_ext(0);
-		pr_notice("wait release fet\n");
-		mdelay(7000);
+	__raw_writel(0, msm_tmr0_base + WDT0_EN);
+	if (!(machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())) {
+		mb();
+		__raw_writel(0, PSHOLD_CTL_SU); /* Actually reset the chip */
+		mdelay(5000);
+		pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
 	}
-#endif
 }
 
 void msm_restart(char mode, const char *cmd)

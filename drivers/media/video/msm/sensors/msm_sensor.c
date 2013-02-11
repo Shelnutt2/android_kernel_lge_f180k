@@ -42,14 +42,26 @@ extern int mipi_lgit_lcd_color_engine_off(void);
 #endif
 /*LGE_UPDATE_E Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
 
+/*=============================================================*/
+void msm_sensor_adjust_frame_lines1(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	uint16_t cur_line = 0;
+	uint16_t exp_fl_lines = 0;
+	if (s_ctrl->sensor_exp_gain_info) {
+		msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
+			s_ctrl->sensor_exp_gain_info->coarse_int_time_addr,
+			&cur_line,
+			MSM_CAMERA_I2C_WORD_DATA);
+		exp_fl_lines = cur_line +
+			s_ctrl->sensor_exp_gain_info->vert_offset;
+		if (exp_fl_lines > s_ctrl->msm_sensor_reg->
+			output_settings[s_ctrl->curr_res].frame_length_lines)
 			msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 				s_ctrl->sensor_output_reg_addr->
 				frame_length_lines,
 				exp_fl_lines,
 				MSM_CAMERA_I2C_WORD_DATA);
-		CDBG("%s cur_line %x cur_fl_lines %x, exp_fl_lines %x\n",
-			__func__,
-			cur_line,
+		CDBG("%s cur_fl_lines %d, exp_fl_lines %d\n", __func__,
 			s_ctrl->msm_sensor_reg->
 			output_settings[s_ctrl->curr_res].frame_length_lines,
 			exp_fl_lines);
@@ -722,24 +734,6 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 					s_ctrl);
 			else
 				rc = -EFAULT;
-			break;
-		case CFG_SET_VISION_MODE:
-			if (s_ctrl->func_tbl->sensor_set_vision_mode)
-				rc = s_ctrl->func_tbl->sensor_set_vision_mode(
-					s_ctrl, cdata.cfg.vision_mode_enable);
-			else
-				rc = -EFAULT;
-				break;
-		case CFG_SET_VISION_AE:
-			if (s_ctrl->func_tbl->sensor_set_vision_ae_control)
-				rc = s_ctrl->func_tbl->
-					sensor_set_vision_ae_control(
-					s_ctrl, cdata.cfg.vision_ae);
-			else
-				rc = -EFAULT;
-				break;
-			}
-			s_ctrl->func_tbl->sensor_dim_info(s_ctrl,&cdata.cfg.dimension);
 			break;
 		default:
 			rc = -EFAULT;

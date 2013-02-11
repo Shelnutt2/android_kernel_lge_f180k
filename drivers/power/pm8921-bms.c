@@ -704,12 +704,6 @@ static int ocv_ir_compensation(struct pm8921_bms_chip *chip, int ocv)
 	pm_bms_masked_write(chip, BMS_TEST1, SEL_ALT_OREG_BIT, 0);
 	return compensated_ocv;
 }
-#ifdef CONFIG_LGE_PM
-/* MAKO Patch */
-static bool is_warm_restart(struct pm8921_bms_chip *chip)
-{
-	u8 reg;
-	int rc;
 
 #define RESET_CC_BIT BIT(3)
 static int reset_cc(struct pm8921_bms_chip *chip)
@@ -1513,7 +1507,7 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 			chip->max_voltage_uv, chip->prev_chg_soc);
 		return chip->prev_chg_soc;
 	}
-#endif
+
 
 	chg_soc = linear_interpolate(chip->soc_at_cv, chip->ibat_at_cv_ua,
 					100, -1 * chip->chg_term_ua,
@@ -1776,13 +1770,6 @@ static void read_shutdown_soc_and_iavg(struct pm8921_bms_chip *chip)
 		chip->shutdown_iavg_ua = 0;
 	}
 
-#ifdef CONFIG_LGE_PM
-/* MAKO patch */
-	if (chip->first_fixed_iavg_ma && !chip->ignore_shutdown_soc) {
-		chip->shutdown_iavg_ua = chip->first_fixed_iavg_ma;
-	}
-#endif
-
 	pr_debug("shutdown_soc = %d shutdown_iavg = %d shutdown_soc_invalid = %d\n",
 			chip->shutdown_soc,
 			chip->shutdown_iavg_ua,
@@ -1936,12 +1923,6 @@ static void calib_hkadc(struct pm8921_bms_chip *chip)
 out:
 	mutex_unlock(&chip->calib_mutex);
 }
-#endif
-
-static void update_power_supply(struct pm8921_bms_chip *chip)
-{
-	if (chip->batt_psy == NULL || chip->batt_psy < 0)
-		chip->batt_psy = power_supply_get_by_name("battery");
 
 #define HKADC_CALIB_DELAY_S	600
 #define HKADC_CALIB_DELTA_TEMP	20
@@ -1970,7 +1951,6 @@ static void calib_hkadc_check(struct pm8921_bms_chip *chip, int batt_temp)
 		}
 	}
 }
-#endif
 
 /*
  * Remaining Usable Charge = remaining_charge (charge at ocv instance)

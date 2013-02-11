@@ -95,12 +95,7 @@ static int msm_slim_3_rx_ch = 1;
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
-
-#if 0
-//[AUDIO_BSP][WB BT] junday.lee@lge.com 2012-11-29 Support WB Aux PCM BT SOC [START]
-static int msm_auxpcm_rate = BTSCO_RATE_8KHZ;
-//[AUDIO_BSP][WB BT] junday.lee@lge.com 2012-11-29 Support WB Aux PCM BT SOC [END]
-#endif
+static int msm_hdmi_rx_ch = 2;
 
 static int hdmi_rate_variable;
 static int rec_mode = INCALL_REC_MONO;

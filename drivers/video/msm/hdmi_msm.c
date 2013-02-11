@@ -416,6 +416,387 @@ void hdmi_msm_cec_msg_recv(void)
 		hdmi_msm_state->cec_queue_wr->operand[i] = 0;
 
 	DEV_DBG("CEC read frame done\n");
+	DEV_DBG("=======================================\n");
+	hdmi_msm_dump_cec_msg(hdmi_msm_state->cec_queue_wr);
+	DEV_DBG("=======================================\n");
+
+#ifdef DRVR_ONLY_CECT_NO_DAEMON
+	switch (hdmi_msm_state->cec_queue_wr->opcode) {
+	case 0x64:
+		/* Set OSD String */
+		DEV_INFO("Recvd OSD Str=[%x]\n",\
+			hdmi_msm_state->cec_queue_wr->operand[3]);
+		break;
+	case 0x83:
+		/* Give Phy Addr */
+		DEV_INFO("Recvd a Give Phy Addr cmd\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		/* Setup a frame for sending out phy addr */
+		temp_msg.sender_id = 0x4;
+
+		/* Broadcast */
+		temp_msg.recvr_id = 0xf;
+		temp_msg.opcode = 0x84;
+		i = 0;
+		temp_msg.operand[i++] = 0x10;
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.operand[i++] = 0x04;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0xFF:
+		/* Abort */
+		DEV_INFO("Recvd an abort cmd 0xFF\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+
+		/*feature abort */
+		temp_msg.opcode = 0x00;
+		temp_msg.operand[i++] =
+			hdmi_msm_state->cec_queue_wr->opcode;
+
+		/*reason for abort = "Refused" */
+		temp_msg.operand[i++] = 0x04;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_dump_cec_msg(&temp_msg);
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x046:
+		/* Give OSD name */
+		DEV_INFO("Recvd cmd 0x046\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+
+		/* OSD Name */
+		temp_msg.opcode = 0x47;
+
+		/* Display control byte */
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.operand[i++] = 'H';
+		temp_msg.operand[i++] = 'e';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = ' ';
+		temp_msg.operand[i++] = 'W';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = 'r';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'd';
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x08F:
+		/* Give Device Power status */
+		DEV_INFO("Recvd a Power status message\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+
+		/* OSD String */
+		temp_msg.opcode = 0x90;
+		temp_msg.operand[i++] = 'H';
+		temp_msg.operand[i++] = 'e';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = ' ';
+		temp_msg.operand[i++] = 'W';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = 'r';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'd';
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x080:
+		/* Routing Change cmd */
+	case 0x086:
+		/* Set Stream Path */
+		DEV_INFO("Recvd Set Stream\n");
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+
+		/*Broadcast this message*/
+		temp_msg.recvr_id = 0xf;
+		i = 0;
+		temp_msg.opcode = 0x82; /* Active Source */
+		temp_msg.operand[i++] = 0x10;
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+
+		/*
+		 * sending <Image View On> message
+		 */
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+		/* opcode for Image View On */
+		temp_msg.opcode = 0x04;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x44:
+		/* User Control Pressed */
+		DEV_INFO("User Control Pressed\n");
+		break;
+	case 0x45:
+		/* User Control Released */
+		DEV_INFO("User Control Released\n");
+		break;
+	default:
+		DEV_INFO("Recvd an unknown cmd = [%u]\n",
+			hdmi_msm_state->cec_queue_wr->opcode);
+#ifdef __SEND_ABORT__
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+		/* opcode for feature abort */
+		temp_msg.opcode = 0x00;
+		temp_msg.operand[i++] =
+			hdmi_msm_state->cec_queue_wr->opcode;
+		/*reason for abort = "Unrecognized opcode" */
+		temp_msg.operand[i++] = 0x00;
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+#else
+		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+		temp_msg.sender_id = 0x4;
+		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+		i = 0;
+		/* OSD String */
+		temp_msg.opcode = 0x64;
+		temp_msg.operand[i++] = 0x0;
+		temp_msg.operand[i++] = 'H';
+		temp_msg.operand[i++] = 'e';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = ' ';
+		temp_msg.operand[i++] = 'W';
+		temp_msg.operand[i++] = 'o';
+		temp_msg.operand[i++] = 'r';
+		temp_msg.operand[i++] = 'l';
+		temp_msg.operand[i++] = 'd';
+		temp_msg.frame_size = i + 2;
+		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+#endif /* __SEND_ABORT__ */
+	}
+
+#endif /* DRVR_ONLY_CECT_NO_DAEMON */
+	mutex_lock(&hdmi_msm_state_mutex);
+	hdmi_msm_state->cec_queue_wr++;
+	if (hdmi_msm_state->cec_queue_wr == CEC_QUEUE_END)
+		hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
+	if (hdmi_msm_state->cec_queue_wr == hdmi_msm_state->cec_queue_rd)
+		hdmi_msm_state->cec_queue_full = true;
+	mutex_unlock(&hdmi_msm_state_mutex);
+	DEV_DBG("Exiting %s()\n", __func__);
+}
+
+void hdmi_msm_cec_one_touch_play(void)
+{
+	struct hdmi_msm_cec_msg temp_msg;
+	uint32 i = 0;
+	memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+	temp_msg.sender_id = 0x4;
+	/*
+	 * Broadcast this message
+	 */
+	temp_msg.recvr_id = 0xf;
+	i = 0;
+	/* Active Source */
+	temp_msg.opcode = 0x82;
+	temp_msg.operand[i++] = 0x10;
+	temp_msg.operand[i++] = 0x00;
+	/*temp_msg.operand[i++] = 0x04;*/
+	temp_msg.frame_size = i + 2;
+	hdmi_msm_cec_msg_send(&temp_msg);
+	/*
+	 * sending <Image View On> message
+	 */
+	memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
+	temp_msg.sender_id = 0x4;
+	temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
+	i = 0;
+	/* Image View On */
+	temp_msg.opcode = 0x04;
+	temp_msg.frame_size = i + 2;
+	hdmi_msm_cec_msg_send(&temp_msg);
+
+}
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
+
+uint32 hdmi_msm_get_io_base(void)
+{
+	return (uint32)MSM_HDMI_BASE;
+}
+EXPORT_SYMBOL(hdmi_msm_get_io_base);
+
+/* Table indicating the video format supported by the HDMI TX Core v1.0 */
+/* Valid Pixel-Clock rates: 25.2MHz, 27MHz, 27.03MHz, 74.25MHz, 148.5MHz */
+static void hdmi_msm_setup_video_mode_lut(void)
+{
+	HDMI_SETUP_LUT(640x480p60_4_3);
+	HDMI_SETUP_LUT(720x480p60_4_3);
+	HDMI_SETUP_LUT(720x480p60_16_9);
+	HDMI_SETUP_LUT(1280x720p60_16_9);
+	HDMI_SETUP_LUT(1920x1080i60_16_9);
+	HDMI_SETUP_LUT(1440x480i60_4_3);
+	HDMI_SETUP_LUT(1440x480i60_16_9);
+	HDMI_SETUP_LUT(1920x1080p60_16_9);
+	HDMI_SETUP_LUT(720x576p50_4_3);
+	HDMI_SETUP_LUT(720x576p50_16_9);
+	HDMI_SETUP_LUT(1280x720p50_16_9);
+	HDMI_SETUP_LUT(1440x576i50_4_3);
+	HDMI_SETUP_LUT(1440x576i50_16_9);
+	HDMI_SETUP_LUT(1920x1080p50_16_9);
+	HDMI_SETUP_LUT(1920x1080p24_16_9);
+	HDMI_SETUP_LUT(1920x1080p25_16_9);
+	HDMI_SETUP_LUT(1920x1080p30_16_9);
+}
+
+#ifdef PORT_DEBUG
+const char *hdmi_msm_name(uint32 offset)
+{
+	switch (offset) {
+	case 0x0000: return "CTRL";
+	case 0x0020: return "AUDIO_PKT_CTRL1";
+	case 0x0024: return "ACR_PKT_CTRL";
+	case 0x0028: return "VBI_PKT_CTRL";
+	case 0x002C: return "INFOFRAME_CTRL0";
+#ifdef CONFIG_FB_MSM_HDMI_3D
+	case 0x0034: return "GEN_PKT_CTRL";
+#endif
+	case 0x003C: return "ACP";
+	case 0x0040: return "GC";
+	case 0x0044: return "AUDIO_PKT_CTRL2";
+	case 0x0048: return "ISRC1_0";
+	case 0x004C: return "ISRC1_1";
+	case 0x0050: return "ISRC1_2";
+	case 0x0054: return "ISRC1_3";
+	case 0x0058: return "ISRC1_4";
+	case 0x005C: return "ISRC2_0";
+	case 0x0060: return "ISRC2_1";
+	case 0x0064: return "ISRC2_2";
+	case 0x0068: return "ISRC2_3";
+	case 0x006C: return "AVI_INFO0";
+	case 0x0070: return "AVI_INFO1";
+	case 0x0074: return "AVI_INFO2";
+	case 0x0078: return "AVI_INFO3";
+#ifdef CONFIG_FB_MSM_HDMI_3D
+	case 0x0084: return "GENERIC0_HDR";
+	case 0x0088: return "GENERIC0_0";
+	case 0x008C: return "GENERIC0_1";
+#endif
+	case 0x00C4: return "ACR_32_0";
+	case 0x00C8: return "ACR_32_1";
+	case 0x00CC: return "ACR_44_0";
+	case 0x00D0: return "ACR_44_1";
+	case 0x00D4: return "ACR_48_0";
+	case 0x00D8: return "ACR_48_1";
+	case 0x00E4: return "AUDIO_INFO0";
+	case 0x00E8: return "AUDIO_INFO1";
+	case 0x0110: return "HDCP_CTRL";
+	case 0x0114: return "HDCP_DEBUG_CTRL";
+	case 0x0118: return "HDCP_INT_CTRL";
+	case 0x011C: return "HDCP_LINK0_STATUS";
+	case 0x012C: return "HDCP_ENTROPY_CTRL0";
+	case 0x0130: return "HDCP_RESET";
+	case 0x0134: return "HDCP_RCVPORT_DATA0";
+	case 0x0138: return "HDCP_RCVPORT_DATA1";
+	case 0x013C: return "HDCP_RCVPORT_DATA2";
+	case 0x0144: return "HDCP_RCVPORT_DATA3";
+	case 0x0148: return "HDCP_RCVPORT_DATA4";
+	case 0x014C: return "HDCP_RCVPORT_DATA5";
+	case 0x0150: return "HDCP_RCVPORT_DATA6";
+	case 0x0168: return "HDCP_RCVPORT_DATA12";
+	case 0x01D0: return "AUDIO_CFG";
+	case 0x0208: return "USEC_REFTIMER";
+	case 0x020C: return "DDC_CTRL";
+	case 0x0214: return "DDC_INT_CTRL";
+	case 0x0218: return "DDC_SW_STATUS";
+	case 0x021C: return "DDC_HW_STATUS";
+	case 0x0220: return "DDC_SPEED";
+	case 0x0224: return "DDC_SETUP";
+	case 0x0228: return "DDC_TRANS0";
+	case 0x022C: return "DDC_TRANS1";
+	case 0x0238: return "DDC_DATA";
+	case 0x0250: return "HPD_INT_STATUS";
+	case 0x0254: return "HPD_INT_CTRL";
+	case 0x0258: return "HPD_CTRL";
+	case 0x025C: return "HDCP_ENTROPY_CTRL1";
+	case 0x027C: return "DDC_REF";
+	case 0x0284: return "HDCP_SW_UPPER_AKSV";
+	case 0x0288: return "HDCP_SW_LOWER_AKSV";
+	case 0x02B4: return "ACTIVE_H";
+	case 0x02B8: return "ACTIVE_V";
+	case 0x02BC: return "ACTIVE_V_F2";
+	case 0x02C0: return "TOTAL";
+	case 0x02C4: return "V_TOTAL_F2";
+	case 0x02C8: return "FRAME_CTRL";
+	case 0x02CC: return "AUD_INT";
+	case 0x0300: return "PHY_REG0";
+	case 0x0304: return "PHY_REG1";
+	case 0x0308: return "PHY_REG2";
+	case 0x030C: return "PHY_REG3";
+	case 0x0310: return "PHY_REG4";
+	case 0x0314: return "PHY_REG5";
+	case 0x0318: return "PHY_REG6";
+	case 0x031C: return "PHY_REG7";
+	case 0x0320: return "PHY_REG8";
+	case 0x0324: return "PHY_REG9";
+	case 0x0328: return "PHY_REG10";
+	case 0x032C: return "PHY_REG11";
+	case 0x0330: return "PHY_REG12";
+	default: return "???";
+	}
+}
+
+void hdmi_outp(uint32 offset, uint32 value)
+{
+	uint32 in_val;
+
+	outpdw(MSM_HDMI_BASE+offset, value);
+	in_val = inpdw(MSM_HDMI_BASE+offset);
+	DEV_DBG("HDMI[%04x] => %08x [%08x] %s\n",
+		offset, value, in_val, hdmi_msm_name(offset));
+}
+
+uint32 hdmi_inp(uint32 offset)
+{
+	uint32 value = inpdw(MSM_HDMI_BASE+offset);
+	DEV_DBG("HDMI[%04x] <= %08x %s\n",
+		offset, value, hdmi_msm_name(offset));
+	return value;
+}
+#endif /* DEBUG */
+
+static void hdmi_msm_turn_on(void);
+static int hdmi_msm_audio_off(void);
+static int hdmi_msm_read_edid(void);
+static void hdmi_msm_hpd_off(void);
+
+static bool hdmi_ready(void)
+{
+	return MSM_HDMI_BASE &&
+			hdmi_msm_state &&
+				hdmi_msm_state->hdmi_app_clk &&
+					hdmi_msm_state->hpd_initialized;
+}
+
+static void hdmi_msm_send_event(boolean on)
+{
 	char *envp[2];
 
 	/* QDSP OFF preceding the HPD event notification */
@@ -3962,9 +4343,10 @@ error1:
 static int hdmi_msm_power_ctrl(boolean enable)
 {
 	int rc   = 0;
-	int time = 0;
+
 
 #ifndef CONFIG_MACH_LGE
+	int time = 0;
 	if (enable) {
 		/*
 		 * Enable HPD only if the UI option is on or if
@@ -4198,28 +4580,6 @@ void hdmi_msm_config_hdcp_feature(void)
 bool mhl_is_enabled(void)
 {
 	return hdmi_msm_state->is_mhl_enabled;
-}
-
-void hdmi_msm_config_hdcp_feature(void)
-{
-	if (hdcp_feature_on && hdmi_msm_has_hdcp()) {
-		init_timer(&hdmi_msm_state->hdcp_timer);
-		hdmi_msm_state->hdcp_timer.function = hdmi_msm_hdcp_timer;
-		hdmi_msm_state->hdcp_timer.data = (uint32)NULL;
-		hdmi_msm_state->hdcp_timer.expires = 0xffffffffL;
-
-		init_completion(&hdmi_msm_state->hdcp_success_done);
-		INIT_WORK(&hdmi_msm_state->hdcp_reauth_work,
-				hdmi_msm_hdcp_reauth_work);
-		INIT_WORK(&hdmi_msm_state->hdcp_work, hdmi_msm_hdcp_work);
-		hdmi_msm_state->hdcp_enable = TRUE;
-	} else {
-		del_timer(&hdmi_msm_state->hdcp_timer);
-		hdmi_msm_state->hdcp_enable = FALSE;
-	}
-	external_common_state->present_hdcp = hdmi_msm_state->hdcp_enable;
-	DEV_INFO("%s: HDCP Feature: %s\n", __func__,
-			hdmi_msm_state->hdcp_enable ? "Enabled" : "Disabled");
 }
 
 #if defined(CONFIG_MACH_LGE) && defined(LGE_MULTICORE_FASTBOOT)

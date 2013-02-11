@@ -505,16 +505,6 @@ void mdp_dma2_update(struct msm_fb_data_type *mfd)
 		mdp_enable_irq(MDP_DMA2_TERM);
 		mfd->dma->busy = TRUE;
 		INIT_COMPLETION(mfd->dma->comp);
-		INIT_COMPLETION(vsync_cntrl.vsync_comp);
-		if (!vsync_cntrl.vsync_irq_enabled &&
-				vsync_cntrl.disabled_clocks) {
-			MDP_OUTP(MDP_BASE + 0x021c, 0x10); /* read pointer */
-			outp32(MDP_INTR_CLEAR, MDP_PRIM_RDPTR);
-			mdp_intr_mask |= MDP_PRIM_RDPTR;
-			outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-			mdp_enable_irq(MDP_VSYNC_TERM);
-			vsync_cntrl.vsync_dma_enabled = 1;
-		}
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 		/* schedule DMA to start */
 		mdp_dma_schedule(mfd, MDP_DMA2_TERM);
@@ -559,10 +549,6 @@ void mdp_dma_vsync_ctrl(int enable)
 
 	if (enable && disabled_clocks) {
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (enable && vsync_cntrl.disabled_clocks &&
-			!vsync_cntrl.vsync_dma_enabled) {
 		MDP_OUTP(MDP_BASE + 0x021c, 0x10); /* read pointer */
 		spin_lock_irqsave(&mdp_spin_lock, flag);
 		outp32(MDP_INTR_CLEAR, MDP_PRIM_RDPTR);
